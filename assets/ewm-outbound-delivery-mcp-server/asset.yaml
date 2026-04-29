@@ -1,0 +1,10 @@
+apiVersion: asset.sap/v1
+kind: Asset
+
+metadata:
+  name: ewm-outbound-delivery-mcp-server
+  version: "1.0.0"
+  description: "MCP server for SAP EWM Warehouse Outbound Delivery Order and Outbound Delivery APIs."
+  translation: translation.json
+
+type: mcp-server

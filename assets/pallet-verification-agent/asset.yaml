@@ -1,0 +1,45 @@
+apiVersion: asset.sap/v1
+kind: Asset
+
+metadata:
+  name: pallet-verification-agent
+  version: "1.0.0"
+  description: "AI-powered pallet verification agent — uses vision AI to detect HU labels on pallet photos and cross-references them against live SAP EWM outbound delivery data."
+
+type: agent
+
+container:
+  buildPath: .
+  port: 5000
+
+probes:
+  startup:
+    path: /.well-known/agent.json
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 18
+  liveness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+tools:
+  mcp-servers:
+    - sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1
+    - sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1
+
+requires:
+  - name: ewm-outbound-delivery-mcp-server
+    kind: mcp-server
+    ordId: sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1
+  - name: ewm-handling-unit-mcp-server
+    kind: mcp-server
+    ordId: sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1
