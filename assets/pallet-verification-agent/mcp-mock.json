@@ -1,0 +1,248 @@
+{
+  "servers": {
+    "ewm-outbound-delivery": {
+      "mcp_server_name": "sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1",
+      "description": "SAP EWM Warehouse Outbound Delivery Order — Read, Update (A2X)",
+      "tools": {
+        "get_whse_outbound_delivery_order_head": {
+          "description": "Retrieve a single warehouse outbound delivery order header by EWM delivery order number.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "EWMOutboundDeliveryOrder": {
+                "type": "string",
+                "description": "EWM outbound delivery order number"
+              }
+            },
+            "required": ["EWMOutboundDeliveryOrder"]
+          },
+          "mock_response": {
+            "EWMOutboundDeliveryOrder": "0080001234",
+            "Warehouse": "WH01",
+            "ShippingPoint": "SP01",
+            "EWMOutboundDeliveryOrderType": "OBD",
+            "GoodsIssueStatus": "A",
+            "OverallPickingStatus": "C",
+            "EWMDeliveryBlockReason": "",
+            "PlannedGoodsIssueDate": "/Date(1745884800000)/",
+            "ShipToParty": "CUST-001"
+          }
+        },
+        "list_whse_outbound_delivery_order_items": {
+          "description": "List all items and assigned handling units for a warehouse outbound delivery order.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "EWMOutboundDeliveryOrder": {
+                "type": "string",
+                "description": "EWM outbound delivery order number"
+              },
+              "$top": {
+                "type": "string",
+                "description": "Maximum number of records"
+              },
+              "$select": {
+                "type": "string",
+                "description": "Fields to return"
+              },
+              "$filter": {
+                "type": "string",
+                "description": "OData filter expression"
+              }
+            },
+            "required": ["EWMOutboundDeliveryOrder"]
+          },
+          "mock_response": {
+            "results": [
+              {
+                "EWMOutboundDeliveryOrder": "0080001234",
+                "EWMOutboundDeliveryOrderItem": "000010",
+                "Product": "PROD-A",
+                "ActualDeliveryQuantity": "10.000",
+                "DeliveryQuantityUnit": "EA",
+                "HandlingUnitExternalID": "00340123450000012341",
+                "Warehouse": "WH01"
+              },
+              {
+                "EWMOutboundDeliveryOrder": "0080001234",
+                "EWMOutboundDeliveryOrderItem": "000020",
+                "Product": "PROD-B",
+                "ActualDeliveryQuantity": "5.000",
+                "DeliveryQuantityUnit": "EA",
+                "HandlingUnitExternalID": "00340123450000012342",
+                "Warehouse": "WH01"
+              },
+              {
+                "EWMOutboundDeliveryOrder": "0080001234",
+                "EWMOutboundDeliveryOrderItem": "000030",
+                "Product": "PROD-C",
+                "ActualDeliveryQuantity": "8.000",
+                "DeliveryQuantityUnit": "EA",
+                "HandlingUnitExternalID": "00340123450000012343",
+                "Warehouse": "WH01"
+              }
+            ]
+          }
+        },
+        "patch_whse_outbound_delivery_order_head": {
+          "description": "Update warehouse outbound delivery order header — used to set delivery blocking reason.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "EWMOutboundDeliveryOrder": {
+                "type": "string",
+                "description": "EWM outbound delivery order number"
+              },
+              "EWMDeliveryBlockReason": {
+                "type": "string",
+                "description": "Blocking reason code"
+              }
+            },
+            "required": ["EWMOutboundDeliveryOrder"]
+          },
+          "mock_response": {
+            "EWMOutboundDeliveryOrder": "0080001234",
+            "EWMDeliveryBlockReason": "Z1",
+            "GoodsIssueStatus": "A"
+          }
+        },
+        "post_goods_issue_ewm": {
+          "description": "Post goods issue for a warehouse outbound delivery order in SAP EWM. Triggers SAP__self.PostGoodsIssue action. Only call after a successful pallet verification (PASS status, no blocks).",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "EWMOutboundDeliveryOrder": {
+                "type": "string",
+                "description": "EWM outbound delivery order number (e.g. '0080001234')"
+              },
+              "Warehouse": {
+                "type": "string",
+                "description": "Warehouse number (e.g. 'WH01')"
+              }
+            },
+            "required": ["EWMOutboundDeliveryOrder", "Warehouse"]
+          },
+          "mock_response": {
+            "EWMOutboundDeliveryOrder": "0080001234",
+            "Warehouse": "WH01",
+            "GoodsIssueStatus": "C",
+            "ActualGoodsMovementDate": "/Date(1746057600000)/",
+            "success": true,
+            "message": "Goods issue posted successfully for delivery 0080001234."
+          }
+        }
+      }
+    },
+    "ewm-handling-unit": {
+      "mcp_server_name": "sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1",
+      "description": "SAP EWM Handling Unit API — read HU header, items, and delivery reference",
+      "tools": {
+        "get_handling_unit": {
+          "description": "Retrieve a single handling unit by external ID and warehouse.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "HandlingUnitExternalID": {
+                "type": "string",
+                "description": "Handling unit external SSCC/barcode ID"
+              },
+              "Warehouse": {
+                "type": "string",
+                "description": "Warehouse number"
+              }
+            },
+            "required": ["HandlingUnitExternalID", "Warehouse"]
+          },
+          "mock_response": {
+            "HandlingUnitExternalID": "00340123450000012341",
+            "Warehouse": "WH01",
+            "PackagingMaterial": "PALET",
+            "HandlingUnitStatus": "A",
+            "GrossWeight": "25.000",
+            "WeightUnit": "KG",
+            "Volume": "0.100",
+            "VolumeUnit": "M3"
+          }
+        },
+        "list_handling_unit_reference_docs": {
+          "description": "List reference documents (delivery assignments) for a handling unit.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "HandlingUnitExternalID": {
+                "type": "string",
+                "description": "Handling unit external SSCC/barcode ID"
+              },
+              "Warehouse": {
+                "type": "string",
+                "description": "Warehouse number"
+              }
+            },
+            "required": ["HandlingUnitExternalID", "Warehouse"]
+          },
+          "mock_response": {
+            "results": [
+              {
+                "HandlingUnitExternalID": "00340123450000012341",
+                "Warehouse": "WH01",
+                "WarehouseDeliveryOrder": "0080001234",
+                "WarehouseDeliveryOrderItem": "000010",
+                "ReferenceDocumentCategory": "EWMOutboundDeliveryOrder"
+              }
+            ]
+          }
+        },
+        "list_handling_unit_items": {
+          "description": "List packed items within a handling unit.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "HandlingUnitExternalID": {
+                "type": "string",
+                "description": "HU external ID"
+              },
+              "Warehouse": {
+                "type": "string",
+                "description": "Warehouse number"
+              },
+              "$top": {
+                "type": "string",
+                "description": "Max results"
+              },
+              "$filter": {
+                "type": "string",
+                "description": "OData filter"
+              }
+            },
+            "required": ["HandlingUnitExternalID", "Warehouse"]
+          },
+          "mock_response": {
+            "results": [
+              {
+                "HandlingUnitExternalID": "00340123450000012341",
+                "Warehouse": "WH01",
+                "Product": "PROD-A",
+                "ActualQuantityInBaseUnit": "10.000",
+                "BaseUnit": "EA"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created_for_agent": "pallet-verification-agent",
+    "mock_mode": true,
+    "deterministic": true,
+    "total_servers": 2,
+    "total_tools": 7,
+    "generated_from": [
+      "specification/pallet-verification-agent/api-specs/warehouse-outbound-delivery-order.json",
+      "specification/pallet-verification-agent/api-specs/handling-unit.json",
+      "specification/pallet-verification-agent/api-specs/outbound-delivery.json"
+    ],
+    "generation_date": "2025-04-29"
+  }
+}
