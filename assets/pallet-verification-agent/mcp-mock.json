@@ -37,18 +37,9 @@
                 "type": "string",
                 "description": "EWM outbound delivery order number"
               },
-              "$top": {
-                "type": "string",
-                "description": "Maximum number of records"
-              },
-              "$select": {
-                "type": "string",
-                "description": "Fields to return"
-              },
-              "$filter": {
-                "type": "string",
-                "description": "OData filter expression"
-              }
+              "$top": { "type": "string", "description": "Maximum number of records" },
+              "$select": { "type": "string", "description": "Fields to return" },
+              "$filter": { "type": "string", "description": "OData filter expression" }
             },
             "required": ["EWMOutboundDeliveryOrder"]
           },
@@ -135,7 +126,7 @@
     },
     "ewm-handling-unit": {
       "mcp_server_name": "sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1",
-      "description": "SAP EWM Handling Unit API — read HU header, items, and delivery reference",
+      "description": "SAP EWM Handling Unit API — read HU header, items, delivery reference, load and unload",
       "tools": {
         "get_handling_unit": {
           "description": "Retrieve a single handling unit by external ID and warehouse.",
@@ -146,10 +137,7 @@
                 "type": "string",
                 "description": "Handling unit external SSCC/barcode ID"
               },
-              "Warehouse": {
-                "type": "string",
-                "description": "Warehouse number"
-              }
+              "Warehouse": { "type": "string", "description": "Warehouse number" }
             },
             "required": ["HandlingUnitExternalID", "Warehouse"]
           },
@@ -173,10 +161,7 @@
                 "type": "string",
                 "description": "Handling unit external SSCC/barcode ID"
               },
-              "Warehouse": {
-                "type": "string",
-                "description": "Warehouse number"
-              }
+              "Warehouse": { "type": "string", "description": "Warehouse number" }
             },
             "required": ["HandlingUnitExternalID", "Warehouse"]
           },
@@ -197,22 +182,10 @@
           "input_schema": {
             "type": "object",
             "properties": {
-              "HandlingUnitExternalID": {
-                "type": "string",
-                "description": "HU external ID"
-              },
-              "Warehouse": {
-                "type": "string",
-                "description": "Warehouse number"
-              },
-              "$top": {
-                "type": "string",
-                "description": "Max results"
-              },
-              "$filter": {
-                "type": "string",
-                "description": "OData filter"
-              }
+              "HandlingUnitExternalID": { "type": "string", "description": "HU external ID" },
+              "Warehouse": { "type": "string", "description": "Warehouse number" },
+              "$top": { "type": "string", "description": "Max results" },
+              "$filter": { "type": "string", "description": "OData filter" }
             },
             "required": ["HandlingUnitExternalID", "Warehouse"]
           },
@@ -227,17 +200,63 @@
               }
             ]
           }
+        },
+        "unload_handling_unit": {
+          "description": "Unload (remove) a handling unit from the pallet and cancel its pick task in SAP EWM. Invokes SAP__self.UnloadHandlingUnit. Use for HUs detected on the pallet that are NOT expected in the delivery (extra_on_pallet).",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "HandlingUnitExternalID": {
+                "type": "string",
+                "description": "HU external SSCC/barcode ID to unload"
+              },
+              "Warehouse": {
+                "type": "string",
+                "description": "Warehouse number (e.g. 'WH01')"
+              }
+            },
+            "required": ["HandlingUnitExternalID", "Warehouse"]
+          },
+          "mock_response": {
+            "HandlingUnitExternalID": "00340123450000099999",
+            "Warehouse": "WH01",
+            "success": true,
+            "message": "Handling unit 00340123450000099999 has been unloaded and pick task cancelled."
+          }
+        },
+        "load_handling_unit": {
+          "description": "Load (pick) a handling unit onto the pallet and confirm its pick task in SAP EWM. Invokes SAP__self.LoadHandlingUnit. Use for HUs expected in the delivery that are NOT yet on the pallet (missing_from_pallet).",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "HandlingUnitExternalID": {
+                "type": "string",
+                "description": "HU external SSCC/barcode ID to load/pick"
+              },
+              "Warehouse": {
+                "type": "string",
+                "description": "Warehouse number (e.g. 'WH01')"
+              }
+            },
+            "required": ["HandlingUnitExternalID", "Warehouse"]
+          },
+          "mock_response": {
+            "HandlingUnitExternalID": "00340123450000012343",
+            "Warehouse": "WH01",
+            "success": true,
+            "message": "Handling unit 00340123450000012343 has been picked and loaded onto pallet."
+          }
         }
       }
     }
   },
   "metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "created_for_agent": "pallet-verification-agent",
     "mock_mode": true,
     "deterministic": true,
     "total_servers": 2,
-    "total_tools": 7,
+    "total_tools": 9,
     "generated_from": [
       "specification/pallet-verification-agent/api-specs/warehouse-outbound-delivery-order.json",
       "specification/pallet-verification-agent/api-specs/handling-unit.json",
