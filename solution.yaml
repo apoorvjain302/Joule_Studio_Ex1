@@ -10,3 +10,4 @@ assets:
   - ref: ./assets/pallet-verification-agent/asset.yaml
   - ref: ./assets/ewm-outbound-delivery-mcp-server/asset.yaml
   - ref: ./assets/ewm-handling-unit-mcp-server/asset.yaml
+  - ref: ./assets/pallet-verification-ui/asset.yaml

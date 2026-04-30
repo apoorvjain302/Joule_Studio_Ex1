@@ -1,0 +1,39 @@
+{
+  "name": "pallet-verification-ui",
+  "version": "1.0.0",
+  "dependencies": {
+    "@sap/cds": "^9"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "^2",
+    "@sap/cds-dk": "^9.9.0",
+    "@ui5/webcomponents": "^2.21.1",
+    "@ui5/webcomponents-fiori": "^2.21.1",
+    "@ui5/webcomponents-icons": "^2.21.1",
+    "@ui5/webcomponents-react": "^2.21.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "vite": "^8.0.10"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "dev:cap": "cds watch",
+    "dev:ui": "npm run dev --workspace=ui",
+    "build": "npm run build --workspace=ui && cds build --production",
+    "preview": "npm run build --workspace=ui && cds watch"
+  },
+  "cds": {
+    "requires": {
+      "auth": "dummy",
+      "db": false
+    },
+    "server": {
+      "cors": true
+    }
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}

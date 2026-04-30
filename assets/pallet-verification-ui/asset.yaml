@@ -1,0 +1,32 @@
+apiVersion: asset.sap/v1
+kind: Asset
+
+metadata:
+  name: pallet-verification-ui
+  version: "1.0.0"
+  description: "CAP + React UI for pallet verification"
+
+type: cap-app
+
+container:
+  buildPath: .
+  port: 4004
+
+probes:
+  startup:
+    path: /health
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 36
+  liveness:
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3

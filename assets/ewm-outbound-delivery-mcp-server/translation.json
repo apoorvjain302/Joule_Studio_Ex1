@@ -1,0 +1,141 @@
+{
+  "mcpTranslationVersion": "0.1",
+  "target": {
+    "ordId": "sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1",
+    "type": "openapi-v3"
+  },
+  "serverInfo": {
+    "name": "com.sap.s4/ewm-outbound-delivery",
+    "title": "EWM Outbound Delivery MCP Server",
+    "version": "1.0.0",
+    "description": "MCP server for SAP EWM Warehouse Outbound Delivery Order and Outbound Delivery APIs. Provides tools to read and update outbound delivery headers, items, and handling unit assignments."
+  },
+  "tools": [
+    {
+      "name": "get_whse_outbound_delivery_order_head",
+      "title": "Get Warehouse Outbound Delivery Order Header",
+      "description": "Retrieve a single warehouse outbound delivery order header by EWM delivery order number. Returns the delivery header including status, warehouse, shipping point, goods issue status, and blocking reason.",
+      "openApiType": {
+        "path": "/WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "EWMOutboundDeliveryOrder",
+            "description": "EWM outbound delivery order number (e.g. '0080001234')"
+          },
+          {
+            "name": "$select",
+            "description": "Comma-separated list of fields to return (e.g. 'EWMOutboundDeliveryOrder,GoodsIssueStatus,EWMDeliveryBlockReason')"
+          },
+          {
+            "name": "$expand",
+            "description": "Navigation properties to expand inline (e.g. '_WhseOutbDeliveryOrderItem')"
+          }
+        ]
+      }
+    },
+    {
+      "name": "list_whse_outbound_delivery_order_head",
+      "title": "List Warehouse Outbound Delivery Order Headers",
+      "description": "Retrieve a list of warehouse outbound delivery order headers. Supports OData query options for filtering, sorting, and pagination.",
+      "openApiType": {
+        "path": "/WhseOutboundDeliveryOrderHead",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "$top",
+            "description": "Maximum number of records to return (e.g. '10')"
+          },
+          {
+            "name": "$filter",
+            "description": "OData filter expression (e.g. \"Warehouse eq 'WH01'\")"
+          },
+          {
+            "name": "$select",
+            "description": "Comma-separated list of fields to return"
+          },
+          {
+            "name": "$orderby",
+            "description": "Sort order (e.g. 'EWMOutboundDeliveryOrder asc')"
+          },
+          {
+            "name": "$skip",
+            "description": "Number of records to skip for pagination"
+          }
+        ]
+      }
+    },
+    {
+      "name": "list_whse_outbound_delivery_order_items",
+      "title": "List Warehouse Outbound Delivery Order Items",
+      "description": "Retrieve all line items and assigned handling units for a specific warehouse outbound delivery order. Returns item details including product, quantities, and associated HU IDs.",
+      "openApiType": {
+        "path": "/WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}/_WhseOutbDeliveryOrderItem",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "EWMOutboundDeliveryOrder",
+            "description": "EWM outbound delivery order number (e.g. '0080001234')"
+          },
+          {
+            "name": "$top",
+            "description": "Maximum number of items to return"
+          },
+          {
+            "name": "$filter",
+            "description": "OData filter expression for items"
+          },
+          {
+            "name": "$select",
+            "description": "Comma-separated list of fields to return"
+          }
+        ]
+      }
+    },
+    {
+      "name": "patch_whse_outbound_delivery_order_head",
+      "title": "Update Warehouse Outbound Delivery Order Header",
+      "description": "Update a warehouse outbound delivery order header. Used to set or clear a delivery blocking reason when critical HU mismatches are detected during pallet verification.",
+      "openApiType": {
+        "path": "/WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}",
+        "method": "patch",
+        "requestBody": {
+          "contentType": "application/json"
+        },
+        "parameters": [
+          {
+            "name": "EWMOutboundDeliveryOrder",
+            "description": "EWM outbound delivery order number to update (e.g. '0080001234')"
+          },
+          {
+            "name": "body",
+            "description": "JSON body with fields to update. To set a delivery block: {\"EWMDeliveryBlockReason\": \"Z1\"}. To clear a block: {\"EWMDeliveryBlockReason\": \"\"}."
+          }
+        ]
+      }
+    },
+    {
+      "name": "get_outbound_delivery_with_hus",
+      "title": "Get Outbound Delivery with Handling Units",
+      "description": "Retrieve a single outbound delivery item with all assigned handling units using the navigation to_HandlingUnitHeaderDelivery. Used to get the full HU list for a delivery.",
+      "openApiType": {
+        "path": "/WhseOutboundDeliveryOrderItem",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "$filter",
+            "description": "OData filter expression (e.g. \"EWMOutboundDeliveryOrder eq '0080001234'\")"
+          },
+          {
+            "name": "$top",
+            "description": "Maximum number of records to return"
+          },
+          {
+            "name": "$select",
+            "description": "Fields to include: EWMOutboundDeliveryOrder, EWMOutboundDeliveryOrderItem, HandlingUnitExternalID, Product, ActualDeliveryQuantity"
+          }
+        ]
+      }
+    }
+  ]
+}

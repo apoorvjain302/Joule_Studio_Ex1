@@ -1,0 +1,1 @@
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sapFontFamily,"72", Arial, sans-serif);background:var(--sapBackgroundColor,#f5f6f7)}.app-shell{flex-direction:column;min-height:100vh;display:flex}.app-page{flex:1}.app-content{flex-wrap:wrap;align-items:flex-start;gap:1rem;padding:1rem;display:flex}

@@ -1,0 +1,10 @@
+apiVersion: solution.sap/v1
+kind: Solution
+
+metadata:
+  name: ewm-pallet-verification-ui
+  version: "1.0.0"
+  description: "CAP + React UI for EWM pallet verification."
+
+assets:
+  - ref: ./assets/pallet-verification-ui/asset.yaml

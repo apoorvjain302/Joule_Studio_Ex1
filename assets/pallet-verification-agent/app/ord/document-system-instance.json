@@ -1,0 +1,178 @@
+{
+  "openResourceDiscovery": "1.14",
+  "$schema": "https://open-resource-discovery.org/spec-v1/interfaces/Document.schema.json",
+  "perspective": "system-instance",
+  "policyLevels": ["sap:ai:v1"],
+  "describedSystemInstance": {
+    "localId": "{{LOCAL_TENANT_ID}}"
+  },
+  "describedSystemVersion": {
+    "version": "1.0.0"
+  },
+  "products": [
+    {
+      "ordId": "customer.ewm-pallet-verification:product:pallet-verification-agent:",
+      "title": "EWM Pallet Verification Agent",
+      "vendor": "sap:vendor:SAP:",
+      "shortDescription": "AI-powered pallet verification agent for SAP EWM outbound loading — detects HU labels via vision AI and cross-references against live EWM delivery data."
+    }
+  ],
+  "packages": [
+    {
+      "ordId": "customer.ewm-pallet-verification:package:pallet-verification-agent:v1",
+      "title": "EWM Pallet Verification Agent Package",
+      "shortDescription": "Package for EWM Pallet Verification Agent and related resources",
+      "description": "AI-powered pallet verification agent for SAP EWM outbound loading — detects HU labels via vision AI and cross-references against live EWM delivery data.",
+      "version": "1.0.0",
+      "policyLevel": "sap:ai:v1",
+      "partOfProducts": ["customer.ewm-pallet-verification:product:pallet-verification-agent:"],
+      "vendor": "sap:vendor:SAP:"
+    }
+  ],
+  "consumptionBundles": [
+    {
+      "ordId": "customer.ewm-pallet-verification:consumptionBundle:pallet-verification-agent-api:v1",
+      "title": "EWM Pallet Verification Agent API",
+      "shortDescription": "Consumption bundle for EWM Pallet Verification Agent A2A API",
+      "description": "This consumption bundle provides access to the EWM Pallet Verification Agent via the A2A protocol.",
+      "version": "1.0.0"
+    }
+  ],
+  "agents": [
+    {
+      "ordId": "customer.ewm-pallet-verification:agent:pallet-verification-agent:v1",
+      "title": "EWM Pallet Verification Agent",
+      "shortDescription": "AI-powered pallet verification agent for SAP EWM outbound loading — detects HU labels via vision AI and cross-references against live EWM delivery data.",
+      "description": "The EWM Pallet Verification Agent automates outbound loading checks in SAP warehouse operations by analysing pallet photos with vision AI, cross-referencing detected handling unit labels against live SAP EWM delivery data, and automatically blocking deliveries when discrepancies or label issues are found.",
+      "version": "1.0.0",
+      "visibility": "public",
+      "releaseStatus": "active",
+      "partOfPackage": "customer.ewm-pallet-verification:package:pallet-verification-agent:v1",
+      "exposedApiResources": [
+        {
+          "ordId": "customer.ewm-pallet-verification:apiResource:pallet-verification-agent-api:v1"
+        }
+      ],
+      "integrationDependencies": [
+        "customer.ewm-pallet-verification:integrationDependency:sap-ai-core:v1",
+        "customer.ewm-pallet-verification:integrationDependency:ewm-outbound-delivery-api:v1",
+        "customer.ewm-pallet-verification:integrationDependency:ewm-handling-unit-api:v1"
+      ],
+      "labels": {
+        "interactionMode": ["conversational"],
+        "llmModel": ["gpt-4o"],
+        "framework": ["langgraph"]
+      },
+      "tags": ["sap", "ai-agent", "a2a", "ewm", "warehouse", "pallet-verification"]
+    }
+  ],
+  "apiResources": [
+    {
+      "ordId": "customer.ewm-pallet-verification:apiResource:pallet-verification-agent-api:v1",
+      "title": "EWM Pallet Verification Agent A2A API",
+      "shortDescription": "A2A API for interacting with the EWM Pallet Verification Agent",
+      "description": "Agent-to-Agent (A2A) protocol API that enables interaction with the EWM Pallet Verification Agent for pallet photo analysis and EWM delivery cross-referencing.",
+      "version": "1.0.0",
+      "visibility": "public",
+      "releaseStatus": "active",
+      "partOfPackage": "customer.ewm-pallet-verification:package:pallet-verification-agent:v1",
+      "partOfConsumptionBundles": [
+        {
+          "ordId": "customer.ewm-pallet-verification:consumptionBundle:pallet-verification-agent-api:v1"
+        }
+      ],
+      "apiProtocol": "a2a",
+      "entryPoints": ["{{AGENT_BASE_URL}}"],
+      "extensible": {
+        "supported": "no"
+      },
+      "resourceDefinitions": [
+        {
+          "type": "a2a-agent-card",
+          "mediaType": "application/json",
+          "url": "{{AGENT_BASE_URL}}/agent-card",
+          "accessStrategies": [
+            {
+              "type": "open"
+            }
+          ]
+        }
+      ],
+      "tags": ["a2a", "agent-api", "ewm", "warehouse"]
+    }
+  ],
+  "integrationDependencies": [
+    {
+      "ordId": "customer.ewm-pallet-verification:integrationDependency:sap-ai-core:v1",
+      "title": "SAP AI Core Inference API",
+      "shortDescription": "Multimodal LLM inference service for vision AI and NLP",
+      "description": "Multimodal LLM inference service used for HU label detection, OCR, and barcode extraction from pallet photos.",
+      "version": "1.0.0",
+      "visibility": "public",
+      "releaseStatus": "active",
+      "mandatory": true,
+      "partOfPackage": "customer.ewm-pallet-verification:package:pallet-verification-agent:v1",
+      "aspects": [
+        {
+          "title": "Vision AI Inference",
+          "description": "Access to multimodal LLM via SAP AI Core for pallet photo analysis",
+          "mandatory": true,
+          "apiResources": [
+            {
+              "ordId": "sap.aicore:apiResource:inference:v1",
+              "minVersion": "1.0.0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ordId": "customer.ewm-pallet-verification:integrationDependency:ewm-outbound-delivery-api:v1",
+      "title": "SAP EWM Warehouse Outbound Delivery Order API",
+      "shortDescription": "OData API for fetching outbound delivery and HU data from SAP EWM",
+      "description": "OData API used to retrieve outbound delivery headers, items, and assigned handling units from SAP S/4HANA Extended Warehouse Management.",
+      "version": "1.0.0",
+      "visibility": "public",
+      "releaseStatus": "active",
+      "mandatory": true,
+      "partOfPackage": "customer.ewm-pallet-verification:package:pallet-verification-agent:v1",
+      "aspects": [
+        {
+          "title": "Outbound Delivery Data Access",
+          "description": "Read access to EWM outbound delivery orders and assigned HU lists",
+          "mandatory": true,
+          "apiResources": [
+            {
+              "ordId": "sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1",
+              "minVersion": "1.0.0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ordId": "customer.ewm-pallet-verification:integrationDependency:ewm-handling-unit-api:v1",
+      "title": "SAP EWM Handling Unit API",
+      "shortDescription": "OData API for handling unit detail lookup and delivery assignment",
+      "description": "OData API used to retrieve handling unit contents, packing materials, and delivery assignments from SAP S/4HANA EWM for barcode-based HU resolution.",
+      "version": "1.0.0",
+      "visibility": "public",
+      "releaseStatus": "active",
+      "mandatory": true,
+      "partOfPackage": "customer.ewm-pallet-verification:package:pallet-verification-agent:v1",
+      "aspects": [
+        {
+          "title": "Handling Unit Lookup",
+          "description": "Read access to EWM handling unit details for SSCC barcode resolution",
+          "mandatory": true,
+          "apiResources": [
+            {
+              "ordId": "sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1",
+              "minVersion": "1.0.0"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

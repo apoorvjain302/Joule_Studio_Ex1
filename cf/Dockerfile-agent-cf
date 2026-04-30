@@ -1,0 +1,20 @@
+# Cloud Foundry compatible Dockerfile for pallet-verification-agent
+# Uses cf/requirements-cf.txt instead of assets/pallet-verification-agent/requirements.txt
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Use CF-compatible requirements (public PyPI packages only)
+COPY cf/requirements-cf.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY assets/pallet-verification-agent/app/ /app/
+
+# CF assigns PORT dynamically — default to 8080
+ENV PORT=8080
+
+EXPOSE 8080
+
+CMD ["python", "main.py"]

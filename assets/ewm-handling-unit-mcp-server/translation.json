@@ -1,0 +1,119 @@
+{
+  "mcpTranslationVersion": "0.1",
+  "target": {
+    "ordId": "sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1",
+    "type": "openapi-v3"
+  },
+  "serverInfo": {
+    "name": "com.sap.s4/ewm-handling-unit",
+    "title": "EWM Handling Unit MCP Server",
+    "version": "1.0.0",
+    "description": "MCP server for the SAP EWM Handling Unit OData API. Provides tools to read handling unit headers, packed items, and delivery reference documents for outbound pallet verification."
+  },
+  "tools": [
+    {
+      "name": "get_handling_unit",
+      "title": "Get Handling Unit",
+      "description": "Retrieve a single handling unit by its external SSCC/barcode ID and warehouse. Returns HU header details including packaging material, weight, volume, and status.",
+      "openApiType": {
+        "path": "/HandlingUnit/{HandlingUnitExternalID}/{Warehouse}",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "HandlingUnitExternalID",
+            "description": "Handling unit external SSCC barcode ID (e.g. '00340123450000012341')"
+          },
+          {
+            "name": "Warehouse",
+            "description": "Warehouse number (e.g. 'WH01')"
+          },
+          {
+            "name": "$select",
+            "description": "Comma-separated list of fields to return"
+          },
+          {
+            "name": "$expand",
+            "description": "Navigation properties to expand (e.g. '_HandlingUnitReferenceDoc,_HandlingUnitItem')"
+          }
+        ]
+      }
+    },
+    {
+      "name": "list_handling_units",
+      "title": "List Handling Units",
+      "description": "Retrieve a list of handling units with optional filtering. Supports OData query options.",
+      "openApiType": {
+        "path": "/HandlingUnit",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "$top",
+            "description": "Maximum number of records to return (e.g. '10')"
+          },
+          {
+            "name": "$filter",
+            "description": "OData filter expression (e.g. \"Warehouse eq 'WH01'\")"
+          },
+          {
+            "name": "$select",
+            "description": "Comma-separated list of fields to return"
+          },
+          {
+            "name": "$orderby",
+            "description": "Sort order for the results"
+          }
+        ]
+      }
+    },
+    {
+      "name": "list_handling_unit_reference_docs",
+      "title": "List Handling Unit Reference Documents",
+      "description": "Retrieve reference documents (delivery assignments) for a specific handling unit. Use this to resolve which outbound delivery order a given HU belongs to by following the _HandlingUnitReferenceDoc navigation.",
+      "openApiType": {
+        "path": "/HandlingUnit/{HandlingUnitExternalID}/{Warehouse}/_HandlingUnitReferenceDoc",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "HandlingUnitExternalID",
+            "description": "Handling unit external SSCC barcode ID (e.g. '00340123450000012341')"
+          },
+          {
+            "name": "Warehouse",
+            "description": "Warehouse number (e.g. 'WH01')"
+          },
+          {
+            "name": "$select",
+            "description": "Fields to return: HandlingUnitExternalID, Warehouse, WarehouseDeliveryOrder, WarehouseDeliveryOrderItem, ReferenceDocumentCategory"
+          }
+        ]
+      }
+    },
+    {
+      "name": "list_handling_unit_items",
+      "title": "List Handling Unit Items",
+      "description": "Retrieve all packed items within a specific handling unit. Returns product, quantity, and stock information for each item packed in the HU.",
+      "openApiType": {
+        "path": "/HandlingUnit/{HandlingUnitExternalID}/{Warehouse}/_HandlingUnitItem",
+        "method": "get",
+        "parameters": [
+          {
+            "name": "HandlingUnitExternalID",
+            "description": "Handling unit external SSCC barcode ID (e.g. '00340123450000012341')"
+          },
+          {
+            "name": "Warehouse",
+            "description": "Warehouse number (e.g. 'WH01')"
+          },
+          {
+            "name": "$top",
+            "description": "Maximum number of items to return"
+          },
+          {
+            "name": "$select",
+            "description": "Fields to return: HandlingUnitExternalID, Warehouse, Product, ActualQuantityInBaseUnit, BaseUnit"
+          }
+        ]
+      }
+    }
+  ]
+}

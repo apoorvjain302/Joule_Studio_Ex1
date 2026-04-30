@@ -1,0 +1,67 @@
+---
+# Cloud Foundry Deployment Manifest
+# EWM Pallet Verification Solution
+#
+# Deploy with:
+#   cf push --manifest cf/manifest.yml
+#
+# Prerequisites:
+#   1. cf login to your BTP Cloud Foundry environment
+#   2. SAP AI Core service instance created (plan: extended)
+#   3. BTP Destination to your S/4HANA/EWM system configured
+#   4. Docker images built and pushed to a registry (see cf/README.md)
+#
+# Replace all <placeholders> before deploying.
+
+applications:
+
+  # ─────────────────────────────────────────────────────────
+  # 1. Pallet Verification Agent (Python / A2A)
+  # ─────────────────────────────────────────────────────────
+  - name: pallet-verification-agent
+    docker:
+      image: <your-registry>/pallet-verification-agent:latest
+    memory: 1G
+    disk_quota: 2G
+    instances: 1
+    health-check-type: http
+    health-check-http-endpoint: /.well-known/agent.json
+    env:
+      PORT: "8080"
+      # Public URL of this app once deployed — fill in after first push
+      AGENT_PUBLIC_URL: https://pallet-verification-agent.<your-cf-domain>
+      # LLM model — use gpt-4o or your AI Core model deployment ID
+      LLM_MODEL: gpt-4o
+      # Option A: OpenAI API key directly
+      OPENAI_API_KEY: <your-openai-api-key>
+      # Option B: SAP AI Core (comment out OPENAI_API_KEY above and use these)
+      # AICORE_AUTH_URL: <ai-core-auth-url>
+      # AICORE_CLIENT_ID: <ai-core-client-id>
+      # AICORE_CLIENT_SECRET: <ai-core-client-secret>
+      # AICORE_BASE_URL: <ai-core-api-url>
+      # AICORE_RESOURCE_GROUP: default
+      # EWM system direct connection (replaces MCP server — see cf/README.md)
+      EWM_BASE_URL: https://<your-s4hana-host>/sap/opu/odata/sap
+      EWM_USERNAME: <ewm-service-user>
+      EWM_PASSWORD: <ewm-service-password>
+      EWM_WAREHOUSE_ID: <your-warehouse-id>
+    services:
+      - pallet-verification-xsuaa     # Optional: for JWT auth
+
+  # ─────────────────────────────────────────────────────────
+  # 2. Pallet Verification UI (CAP / Node.js)
+  # ─────────────────────────────────────────────────────────
+  - name: pallet-verification-ui
+    path: assets/pallet-verification-ui
+    buildpacks:
+      - nodejs_buildpack
+    memory: 512M
+    disk_quota: 1G
+    instances: 1
+    command: npm start
+    health-check-type: http
+    health-check-http-endpoint: /health
+    env:
+      NODE_ENV: production
+      # URL of the deployed agent above
+      AGENT_URL: https://pallet-verification-agent.<your-cf-domain>
