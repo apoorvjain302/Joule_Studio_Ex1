@@ -1,0 +1,65 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: GetWarehouseTasksForDelivery
+  version: 1.0.0
+  description: >
+    Retrieves all open warehouse tasks associated with a specific outbound
+    delivery order and handling unit from SAP EWM.
+    Used by RemediateIncorrectHU to resolve WarehouseOrder and WarehouseTask
+    IDs before cancellation and reversal.
+
+api:
+  ordId: sap.s4:apiResource:OP_WAREHOUSEORDER_0001:v1
+  # SAP Build: obtain the Warehouse Order and Task API spec from SAP API Business Hub
+  # (ORD ID: sap.s4:apiResource:OP_WAREHOUSEORDER_0001:v1) and upload when creating this action.
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+request:
+  method: GET
+  path: "/WarehouseTask"
+  queryParameters:
+    # Filter to open picking tasks for the specific HU and warehouse.
+    $filter: >
+      WarehouseNumber eq '{WarehouseNumber}'
+      and HandlingUnitExternalID eq '{HandlingUnitExternalID}'
+      and WarehouseTaskType eq 'PK'
+      and WarehouseTaskStatus ne 'C'
+    $select: "WarehouseNumber,WarehouseOrder,WarehouseTask,HandlingUnitExternalID,WarehouseTaskStatus,SourceStorageBin,DestinationStorageBin"
+    $top: "10"
+
+inputs:
+  - name: WarehouseNumber
+    type: string
+    required: true
+    in: query-filter
+    description: EWM warehouse number.
+  - name: HandlingUnitExternalID
+    type: string
+    required: true
+    in: query-filter
+    description: HU external ID to find open picking tasks for.
+
+outputs:
+  - name: tasks
+    type: array
+    sourcePath: "$.value"
+    description: >
+      Array of open warehouse tasks. Each item contains:
+      WarehouseNumber, WarehouseOrder, WarehouseTask,
+      HandlingUnitExternalID, WarehouseTaskStatus,
+      SourceStorageBin, DestinationStorageBin.
+  - name: taskCount
+    type: integer
+    sourcePath: "$.value.length"
+
+errorHandling:
+  onEmptyResult:
+    tasks: []
+    taskCount: 0
+  onHttpError:
+    userMessage: >
+      Could not retrieve warehouse tasks for HU {HandlingUnitExternalID}:
+      {error.message}. Please escalate to your EWM administrator.

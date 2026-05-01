@@ -1,0 +1,59 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: ReleaseDeliveryBlock
+  version: 1.0.0
+  description: >
+    Clears the delivery block reason on an EWM outbound delivery order,
+    re-enabling goods issue confirmation. Used exclusively by the
+    SupervisorOverride skill after supervisor confirmation.
+    HIGH-RISK WRITE ACTION â restricted to WarehouseSupervisor role.
+
+api:
+  ordId: sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1
+  # SAP Build: upload warehouse-outbound-delivery-order.json when creating this action.
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+riskLevel: high
+requiresConfirmation: true
+requiredRoles:
+  - WarehouseSupervisor
+
+request:
+  method: PATCH
+  path: "/WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}"
+  headers:
+    Content-Type: "application/json"
+    If-Match: "*"
+  body:
+    # Clear the block reason by setting it to empty string.
+    # EWMDeliveryBlockReason is the correct writable field; OverallBlockingStatus is read-only.
+    EWMDeliveryBlockReason: ""
+
+inputs:
+  - name: EWMOutboundDeliveryOrder
+    type: string
+    required: true
+    in: path
+    description: EWM outbound delivery order number to unblock.
+
+outputs:
+  - name: released
+    type: boolean
+    value: true
+
+auditLog:
+  enabled: true
+  fields:
+    - EWMOutboundDeliveryOrder
+    - currentUser.id
+    - currentUser.roles
+    - timestamp
+
+errorHandling:
+  onHttpError:
+    userMessage: >
+      Could not release block on delivery {EWMOutboundDeliveryOrder}:
+      {error.message}. Please escalate to your EWM administrator.

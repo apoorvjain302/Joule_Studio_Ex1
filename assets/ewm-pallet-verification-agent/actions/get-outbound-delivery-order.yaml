@@ -1,0 +1,69 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: GetOutboundDeliveryOrder
+  version: 1.0.0
+  description: >
+    Read an EWM outbound delivery order header and its assigned handling unit
+    items from SAP S/4HANA Cloud Private Edition (EWM).
+    Used to fetch the expected HU list for pallet verification.
+
+api:
+  ordId: sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1
+  # SAP Build: register the API spec via Destinations â do NOT reference a local file path.
+  # Upload warehouse-outbound-delivery-order.json when creating this action in SAP Build Actions.
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+request:
+  method: GET
+  # Fetch delivery header; expand items in a separate call to stay OData v4 compliant.
+  path: "/WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}"
+  queryParameters:
+    $expand: "_WhseOutbDeliveryOrderItem"
+    # Do NOT use $select across navigation properties in OData v4.
+    # Retrieve all fields and filter in the skill layer.
+
+inputs:
+  - name: EWMOutboundDeliveryOrder
+    type: string
+    required: true
+    in: path
+    description: EWM outbound delivery order number.
+
+outputs:
+  - name: EWMOutboundDeliveryOrder
+    type: string
+    sourcePath: "$.EWMOutboundDeliveryOrder"
+  - name: GoodsIssueStatus
+    type: string
+    sourcePath: "$.GoodsIssueStatus"
+  - name: OverallBlockingStatus
+    type: string
+    sourcePath: "$.OverallBlockingStatus"
+  - name: EWMDeliveryBlockReason
+    type: string
+    sourcePath: "$.EWMDeliveryBlockReason"
+  - name: items
+    type: array
+    sourcePath: "$._WhseOutbDeliveryOrderItem.value"
+    description: >
+      Array of delivery items. Each item contains EWMOutboundDeliveryOrderItem,
+      HandlingUnitExternalID, Product, ActualDeliveryQuantity, DeliveryQuantityUnit.
+  - name: itemCount
+    type: integer
+    sourcePath: "$._WhseOutbDeliveryOrderItem.value.length"
+
+errorHandling:
+  onHttpError:
+    userMessage: >
+      SAP EWM returned an error for delivery {EWMOutboundDeliveryOrder}:
+      {error.message}. Please verify the delivery number and try again.
+  onNotFound:
+    userMessage: >
+      Delivery {EWMOutboundDeliveryOrder} was not found in SAP EWM.
+      Please check the delivery number.
+  onTimeout:
+    userMessage: >
+      SAP EWM did not respond in time. Please retry or escalate to your supervisor.

@@ -1,0 +1,73 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: ReverseWarehouseTask
+  version: 1.0.0
+  description: >
+    Reverses a completed or cancelled warehouse task in SAP EWM, returning
+    the incorrectly picked HU to its source storage bin. Used as the second
+    step of the HU remediation flow.
+    HIGH-RISK WRITE ACTION â requires explicit confirmation before execution.
+
+api:
+  ordId: sap.s4:apiResource:OP_WAREHOUSEORDER_0001:v1
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+riskLevel: high
+requiresConfirmation: true
+
+request:
+  method: POST
+  path: "/WarehouseTask/{WarehouseNumber}/{WarehouseOrder}/{WarehouseTask}/SAP__self.ReverseWarehouseTask"
+  headers:
+    Content-Type: "application/json"
+  body: {}
+
+inputs:
+  - name: WarehouseNumber
+    type: string
+    required: true
+    in: path
+    description: EWM warehouse number.
+  - name: WarehouseOrder
+    type: string
+    required: true
+    in: path
+    description: EWM warehouse order number containing the task to reverse.
+  - name: WarehouseTask
+    type: string
+    required: true
+    in: path
+    description: EWM warehouse task number to reverse.
+
+outputs:
+  - name: reversed
+    type: boolean
+    value: true
+  - name: WarehouseTask
+    type: string
+    value: "{WarehouseTask}"
+  - name: WarehouseOrder
+    type: string
+    value: "{WarehouseOrder}"
+  - name: SourceStorageBin
+    type: string
+    sourcePath: "$.SourceStorageBin"
+    description: The bin the HU was returned to after reversal.
+
+auditLog:
+  enabled: true
+  fields:
+    - WarehouseNumber
+    - WarehouseOrder
+    - WarehouseTask
+    - currentUser.id
+    - timestamp
+
+errorHandling:
+  onHttpError:
+    userMessage: >
+      Could not reverse warehouse task {WarehouseTask}: {error.message}.
+      Please escalate to your EWM administrator.

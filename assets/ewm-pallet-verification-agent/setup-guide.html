@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EWM Pallet Verification Agent â BTP Setup Guide</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "72", "SAP 72", Arial, sans-serif;
+      background: #f5f6f7;
+      color: #32363a;
+      padding: 32px 24px 64px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #0070f2;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #6a6d70;
+      margin-bottom: 40px;
+    }
+
+    /* ââ PHASE HEADER ââ */
+    .phase-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 36px 0 14px;
+    }
+    .phase-badge {
+      background: #0070f2;
+      color: #fff;
+      border-radius: 20px;
+      padding: 3px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .phase-badge.green  { background: #107e3e; }
+    .phase-badge.orange { background: #e9730c; }
+    .phase-badge.purple { background: #6c32a0; }
+    .phase-badge.teal   { background: #0f828f; }
+    .phase-line {
+      flex: 1;
+      height: 2px;
+      background: #d9dadb;
+      border-radius: 2px;
+    }
+
+    /* ââ FLOW CONTAINER ââ */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+
+    /* ââ STEP CARD ââ */
+    .step {
+      display: flex;
+      gap: 0;
+      position: relative;
+    }
+
+    /* vertical connector line */
+    .step:not(:last-child) .connector {
+      position: absolute;
+      left: 23px;
+      top: 52px;
+      width: 2px;
+      bottom: -14px;
+      background: #c0c2c4;
+      z-index: 0;
+    }
+
+    .step-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 48px;
+      padding-top: 4px;
+      z-index: 1;
+    }
+
+    .step-num {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      background: #0070f2;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,112,242,0.25);
+    }
+    .step-num.green  { background: #107e3e; box-shadow: 0 2px 8px rgba(16,126,62,0.25); }
+    .step-num.orange { background: #e9730c; box-shadow: 0 2px 8px rgba(233,115,12,0.25); }
+    .step-num.purple { background: #6c32a0; box-shadow: 0 2px 8px rgba(108,50,160,0.25); }
+    .step-num.teal   { background: #0f828f; box-shadow: 0 2px 8px rgba(15,130,143,0.25); }
+
+    .step-body {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 16px 20px 18px;
+      margin: 0 0 14px 16px;
+      flex: 1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      position: relative;
+    }
+    .step-body::before {
+      content: "";
+      position: absolute;
+      left: -8px;
+      top: 16px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-right: 8px solid #e0e0e0;
+    }
+    .step-body::after {
+      content: "";
+      position: absolute;
+      left: -7px;
+      top: 17px;
+      width: 0;
+      height: 0;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-right: 7px solid #fff;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .step-desc {
+      font-size: 13px;
+      color: #515457;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    /* ââ SUB-ITEMS ââ */
+    .sub-items {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .sub-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #f7f8f9;
+      border: 1px solid #e8e8e8;
+      border-radius: 7px;
+      padding: 9px 12px;
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .sub-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .sub-content strong {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #32363a;
+    }
+    .sub-content span {
+      color: #6a6d70;
+    }
+
+    /* ââ FILE CHIP ââ */
+    .file-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #e8f1fd;
+      color: #0057b8;
+      border: 1px solid #c0d8f8;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+    .chip.green-chip  { background: #ebf5ef; color: #107e3e; border-color: #b8dfc8; }
+    .chip.orange-chip { background: #fef3e8; color: #c05000; border-color: #f5cfa0; }
+
+    /* ââ NOTE BOX ââ */
+    .note {
+      display: flex;
+      gap: 10px;
+      background: #fff8ec;
+      border: 1px solid #f5cfa0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: #6b3a00;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .note-icon { font-size: 16px; flex-shrink: 0; }
+
+    /* ââ SUCCESS BOX ââ */
+    .success-box {
+      background: #ebf5ef;
+      border: 1.5px solid #107e3e;
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-top: 32px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .success-box .big-icon { font-size: 36px; }
+    .success-box h3 { font-size: 15px; color: #0d6b33; margin-bottom: 4px; }
+    .success-box p  { font-size: 13px; color: #1e5631; line-height: 1.6; }
+
+    /* ââ TABLE ââ */
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin-top: 10px;
+    }
+    .ref-table th {
+      background: #f0f4f9;
+      text-align: left;
+      padding: 7px 10px;
+      font-weight: 600;
+      border: 1px solid #dde3ea;
+    }
+    .ref-table td {
+      padding: 7px 10px;
+      border: 1px solid #dde3ea;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .ref-table tr:nth-child(even) td { background: #f9fafb; }
+    code {
+      background: #f0f2f5;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 11.5px;
+      font-family: "Courier New", monospace;
+      color: #32363a;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ð­ EWM Pallet Verification Agent</h1>
+  <p class="subtitle">Step-by-step guide to set up your Joule Agent in SAP BTP using the generated project files</p>
+
+  <!-- ââââââââââââââââââââââââââââââââââââââââââââââ
+       PHASE A â PREREQUISITES
+  ââââââââââââââââââââââââââââââââââââââââââââââ -->
+  <div class="phase-label">
+    <span class="phase-badge">Phase A â Prerequisites</span>
+    <div class="phase-line"></div>
+  </div>
+
+  <div class="flow">
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num">1</div></div>
+      <div class="step-body">
+        <div class="step-title">â Check your BTP entitlements</div>
+        <div class="step-desc">
+          Make sure the following services are active in your BTP subaccount before you start.
+          Go to <strong>BTP Cockpit â Subaccount â Entitlements</strong> and confirm:
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">ð¤</span>
+            <div class="sub-content"><strong>SAP Joule</strong><span>Needed to run Skills and show the chat panel in S/4HANA</span></div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð§ </span>
+            <div class="sub-content"><strong>SAP AI Core + SAP AI Launchpad</strong><span>Needed to host the GPT-4o vision model and register the agent</span></div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð¨</span>
+            <div class="sub-content"><strong>SAP Build (Process Automation plan)</strong><span>Needed to create Actions and Skills</span></div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content"><strong>SAP BTP Connectivity Service</strong><span>Needed to connect BTP to your S/4HANA system</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num">2</div></div>
+      <div class="step-body">
+        <div class="step-title">ð Create an OAuth2 client in your S/4HANA system</div>
+        <div class="step-desc">
+          Your agent needs permission to call the EWM APIs. In your S/4HANA system, create an OAuth2 client that grants access to the EWM OData services.
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">âï¸</span>
+            <div class="sub-content">
+              <strong>Transaction: SOAUTH2</strong>
+              <span>Create a new OAuth2 client. Grant scopes for Warehouse Outbound Delivery Order, Handling Unit, and Warehouse Order &amp; Task APIs.</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Note down</strong>
+              <span>Client ID, Client Secret, and Token URL â you will need these in the next step.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">3</div></div>
+      <div class="step-body">
+        <div class="step-title">ð Create a BTP Destination to S/4HANA EWM</div>
+        <div class="step-desc">
+          Go to <strong>BTP Cockpit â Connectivity â Destinations â New Destination</strong> and fill in:
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Name</strong>
+              <span><code>M20CLNT100</code> â this exact name is used in all Action files</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>URL</strong>
+              <span><code>https://&lt;your-s4hana-host&gt;/sap/opu/odata4/sap/</code></span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Authentication: OAuth2ClientCredentials</strong>
+              <span>Paste the Client ID, Client Secret, and Token URL from Step 2</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">â</span>
+            <div class="sub-content">
+              <strong>Additional Property</strong>
+              <span><code>sap-client = &lt;your EWM client number, e.g. 100&gt;</code></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+
+
+  <!-- ââââââââââââââââââââââââââââââââââââââââââââââ
+       PHASE B â ACTIONS
+  ââââââââââââââââââââââââââââââââââââââââââââââ -->
+  <div class="phase-label">
+    <span class="phase-badge orange">Phase B â Create Actions in SAP Build</span>
+    <div class="phase-line"></div>
+  </div>
+  <div class="flow">
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num orange">4</div></div>
+      <div class="step-body">
+        <div class="step-title">ð Open SAP Build Actions</div>
+        <div class="step-desc">
+          Go to <strong>SAP Build â Actions â Create</strong>. You will create one Action per file below.
+          Each Action connects one specific EWM API endpoint to Joule.
+        </div>
+        <div class="note">
+          <span class="note-icon">ð¡</span>
+          <span>Actions are the "connectors" â they tell Joule exactly which API to call, what to send, and what to expect back. Think of them as smart buttons wired to your EWM system.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num orange">5</div></div>
+      <div class="step-body">
+        <div class="step-title">ð¤ Upload the API spec files</div>
+        <div class="step-desc">
+          When SAP Build asks for an API spec, upload the files listed below from your project.
+          These files were automatically downloaded from SAP API Business Hub during project generation.
+        </div>
+        <div class="file-chips">
+          <span class="chip">ð warehouse-outbound-delivery-order.json</span>
+          <span class="chip">ð handling-unit.json</span>
+        </div>
+        <div class="note">
+          <span class="note-icon">ð</span>
+          <span>Files are located at: <code>specification/ewm-pallet-verification-agent/api-specs/</code></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num orange">6</div></div>
+      <div class="step-body">
+        <div class="step-title">âï¸ Configure each Action</div>
+        <div class="step-desc">
+          Create one Action for each file in <code>assets/ewm-pallet-verification-agent/actions/</code>.
+          Use the YAML file as your configuration guide â it tells you exactly which endpoint,
+          inputs, outputs, and destination to use.
+        </div>
+        <table class="ref-table">
+          <thead>
+            <tr>
+              <th>Action YAML file</th>
+              <th>What it does</th>
+              <th>API method &amp; endpoint</th>
+              <th>Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>get-outbound-delivery-order.yaml</code></td>
+              <td>Reads the delivery header + assigned HU list</td>
+              <td><code>GET /WhseOutboundDeliveryOrderHead/{id}</code></td>
+              <td>ð¢ Read only</td>
+            </tr>
+            <tr>
+              <td><code>get-handling-unit-details.yaml</code></td>
+              <td>Reads HU contents and reference documents</td>
+              <td><code>GET /HandlingUnit/{id}/{warehouse}</code></td>
+              <td>ð¢ Read only</td>
+            </tr>
+            <tr>
+              <td><code>look-up-hu-by-barcode-action.yaml</code></td>
+              <td>Finds HU ID from a scanned SSCC barcode</td>
+              <td><code>GET /HandlingUnitAlternativeID</code></td>
+              <td>ð¢ Read only</td>
+            </tr>
+            <tr>
+              <td><code>get-warehouse-tasks-for-delivery.yaml</code></td>
+              <td>Lists open picking tasks for a given HU</td>
+              <td><code>GET /WarehouseTask</code></td>
+              <td>ð¢ Read only</td>
+            </tr>
+            <tr>
+              <td><code>block-delivery.yaml</code></td>
+              <td>Sets a block on the delivery to stop goods issue</td>
+              <td><code>PATCH /WhseOutboundDeliveryOrderHead/{id}</code></td>
+              <td>ð´ Write â enable confirmation prompt</td>
+            </tr>
+            <tr>
+              <td><code>release-delivery-block.yaml</code></td>
+              <td>Removes the block (supervisor only)</td>
+              <td><code>PATCH /WhseOutboundDeliveryOrderHead/{id}</code></td>
+              <td>ð´ Write â supervisor role required</td>
+            </tr>
+            <tr>
+              <td><code>cancel-picking-task.yaml</code></td>
+              <td>Cancels an open picking task for a wrong HU</td>
+              <td><code>POST /WarehouseTask/.../CancelWarehouseTask</code></td>
+              <td>ð´ Write â enable confirmation prompt</td>
+            </tr>
+            <tr>
+              <td><code>reverse-warehouse-task.yaml</code></td>
+              <td>Returns a wrong HU back to its storage bin</td>
+              <td><code>POST /WarehouseTask/.../ReverseWarehouseTask</code></td>
+              <td>ð´ Write â enable confirmation prompt</td>
+            </tr>
+            <tr>
+              <td><code>create-warehouse-task.yaml</code></td>
+              <td>Creates a new pick task for the correct HU</td>
+              <td><code>POST /WarehouseOrder/.../CreateWarehouseTask</code></td>
+              <td>ð´ Write â enable confirmation prompt</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="note" style="margin-top:12px;">
+          <span class="note-icon">â ï¸</span>
+          <span>For all ð´ Write Actions: in SAP Build, enable the <strong>"Require user confirmation"</strong> toggle. This prevents accidental writes to your EWM system.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+
+
+  <!-- ââââââââââââââââââââââââââââââââââââââââââââââ
+       PHASE C â AI MODEL
+  ââââââââââââââââââââââââââââââââââââââââââââââ -->
+  <div class="phase-label">
+    <span class="phase-badge purple">Phase C â Set Up the AI Vision Model</span>
+    <div class="phase-line"></div>
+  </div>
+  <div class="flow">
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num purple">7</div></div>
+      <div class="step-body">
+        <div class="step-title">ð§  Create a model deployment in SAP AI Launchpad</div>
+        <div class="step-desc">
+          Go to <strong>SAP AI Launchpad â ML Operations â Deployments â Create</strong>.
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">ð¯</span>
+            <div class="sub-content">
+              <strong>Executable: azure-openai</strong>
+              <span>Select this as the model provider</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð¤</span>
+            <div class="sub-content">
+              <strong>Model: gpt-4o (version 2024-11-20)</strong>
+              <span>This is the vision-capable model used to analyse pallet photos</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Note the Deployment ID</strong>
+              <span>You will bind this to the VerifyPalletLoading skill in the next phase</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num purple">8</div></div>
+      <div class="step-body">
+        <div class="step-title">ð Create a custom delivery block reason in EWM Customizing</div>
+        <div class="step-desc">
+          The <strong>BlockDelivery</strong> action uses reason code <code>Z1</code> to block a delivery.
+          This must exist in your EWM system.
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">âï¸</span>
+            <div class="sub-content">
+              <strong>EWM Customizing path</strong>
+              <span>Extended Warehouse Management â Delivery Processing â Define Delivery Blocking Reasons â Add <code>Z1 = HU Mismatch (Pallet Verification)</code></span>
+            </div>
+          </div>
+        </div>
+        <div class="note">
+          <span class="note-icon">ð¡</span>
+          <span>If you prefer a different reason code, open <code>actions/block-delivery.yaml</code> and change the <code>default: "Z1"</code> value to match your system's code before creating the Action in SAP Build.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+
+
+  <!-- ââââââââââââââââââââââââââââââââââââââââââââââ
+       PHASE D â SKILLS
+  ââââââââââââââââââââââââââââââââââââââââââââââ -->
+  <div class="phase-label">
+    <span class="phase-badge teal">Phase D â Create Skills in SAP Joule Studio</span>
+    <div class="phase-line"></div>
+  </div>
+  <div class="flow">
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num teal">9</div></div>
+      <div class="step-body">
+        <div class="step-title">ðï¸ Open SAP Joule Studio inside SAP Build</div>
+        <div class="step-desc">
+          Go to <strong>SAP Build â Joule â Skills â Create Skill</strong>.
+          Skills are the "brains" â they orchestrate the conversation flow, call the Actions you
+          created in Phase B, and decide what to show the warehouse worker.
+        </div>
+        <div class="note">
+          <span class="note-icon">ð¡</span>
+          <span>Create skills in the order shown below â sub-skills must exist before the primary skill can reference them.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num teal">10</div></div>
+      <div class="step-body">
+        <div class="step-title">ð Create sub-skills first (Steps 10a â 10d)</div>
+        <div class="step-desc">Use the YAML files in <code>assets/ewm-pallet-verification-agent/skills/</code> as your blueprint for each skill's configuration.</div>
+
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">1ï¸â£</span>
+            <div class="sub-content">
+              <strong>LookUpHUByBarcode</strong> â <code>look-up-hu-by-barcode.yaml</code>
+              <span>2-step skill: calls <em>LookUpHUByBarcodeAction</em> to find the HU, then <em>GetHandlingUnitDetails</em> to get the delivery number. No trigger phrase â called only by VerifyPalletLoading.</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">2ï¸â£</span>
+            <div class="sub-content">
+              <strong>GenerateVerificationReport</strong> â <code>generate-verification-report.yaml</code>
+              <span>Compares detected HU list vs expected EWM list. Produces a pass/fail report card. No external action calls â pure logic + template. Inputs: detectedHUs, expectedHUs, deliveryNumber, warehouseNumber.</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">3ï¸â£</span>
+            <div class="sub-content">
+              <strong>RemediateIncorrectHU</strong> â <code>remediate-incorrect-hu.yaml</code>
+              <span>6-step remediation flow: confirm â fetch tasks â cancel picking â reverse tasks â fetch delivery order â create new tasks. Calls 4 write Actions. Trigger phrases: "fix wrong pallet", "reverse wrong pick".</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">4ï¸â£</span>
+            <div class="sub-content">
+              <strong>SupervisorOverride</strong> â <code>supervisor-override.yaml</code>
+              <span>Lets a supervisor release a blocked delivery. Role-gated: only users with WarehouseSupervisor role can run it. Trigger phrases: "release delivery block", "unblock delivery".</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num teal">11</div></div>
+      <div class="step-body">
+        <div class="step-title">â­ Create the primary skill: VerifyPalletLoading</div>
+        <div class="step-desc">
+          This is the main skill workers use every day. File: <code>verify-pallet-loading.yaml</code>.
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">ð¬</span>
+            <div class="sub-content">
+              <strong>Trigger phrases</strong>
+              <span>"verify pallet", "check pallet labels", "scan pallet", "pallet verification", "loading check"</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð¥</span>
+            <div class="sub-content">
+              <strong>Inputs</strong>
+              <span>palletPhoto (file, required), warehouseNumber (string, required), deliveryNumber (string, optional)</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Bind the GPT-4o deployment</strong>
+              <span>In the AI model invocation step (Step 2 â Vision Analysis), select the deployment ID you noted in Step 7</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Bind sub-skills</strong>
+              <span>Wire LookUpHUByBarcode, GenerateVerificationReport, and RemediateIncorrectHU in the corresponding skill steps</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Bind Actions</strong>
+              <span>Wire GetOutboundDeliveryOrder (Step M3) and BlockDelivery (Step M5) to their respective action steps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+
+
+  <!-- ââââââââââââââââââââââââââââââââââââââââââââââ
+       PHASE E â REGISTER AGENT
+  ââââââââââââââââââââââââââââââââââââââââââââââ -->
+  <div class="phase-label">
+    <span class="phase-badge green">Phase E â Register &amp; Activate the Agent</span>
+    <div class="phase-line"></div>
+  </div>
+  <div class="flow">
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num green">12</div></div>
+      <div class="step-body">
+        <div class="step-title">ð¤ Register the agent in SAP AI Launchpad</div>
+        <div class="step-desc">
+          Go to <strong>SAP AI Launchpad â Generative AI Hub â Agents â Create Agent</strong>.
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">ð·ï¸</span>
+            <div class="sub-content">
+              <strong>Name</strong>
+              <span>EWM Pallet Verification Agent</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð§</span>
+            <div class="sub-content">
+              <strong>Add all 5 skills</strong>
+              <span>VerifyPalletLoading, LookUpHUByBarcode, GenerateVerificationReport, RemediateIncorrectHU, SupervisorOverride</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð¥</span>
+            <div class="sub-content">
+              <strong>Assign roles</strong>
+              <span>WarehouseOperator (can run all skills except SupervisorOverride), WarehouseSupervisor (full access)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="connector"></div>
+      <div class="step-left"><div class="step-num green">13</div></div>
+      <div class="step-body">
+        <div class="step-title">ð¥ï¸ Activate Joule in your SAP S/4HANA Fiori Launchpad</div>
+        <div class="step-desc">
+          Go to <strong>BTP Cockpit â Joule Configuration</strong> and connect it to your S/4HANA system.
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">â</span>
+            <div class="sub-content">
+              <strong>Enable Joule for your S/4HANA system</strong>
+              <span>Follow the Joule activation guide for your S/4HANA Cloud Private Edition version</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð±</span>
+            <div class="sub-content">
+              <strong>Optional: Enable SAP Mobile Start</strong>
+              <span>Workers can then use Joule from their mobile device on the warehouse floor</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Assign the EWM Pallet Verification Agent</strong>
+              <span>In the Joule Configuration, link the agent to the Warehouse Operations context so it appears for the right users</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num green">14</div></div>
+      <div class="step-body">
+        <div class="step-title">ð§ª Test the agent end-to-end</div>
+        <div class="step-desc">
+          Open the Joule panel in your SAP S/4HANA Fiori Launchpad and run through these test scenarios:
+        </div>
+        <div class="sub-items">
+          <div class="sub-item">
+            <span class="sub-icon">â</span>
+            <div class="sub-content">
+              <strong>Happy path</strong>
+              <span>Say "verify pallet" â upload a photo of a correct pallet â expect a â PASS report with all HUs matched</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">â</span>
+            <div class="sub-content">
+              <strong>Mismatch detection</strong>
+              <span>Upload a photo with a wrong HU â expect a â FAIL report, delivery block confirmation prompt, and offer to remediate</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð</span>
+            <div class="sub-content">
+              <strong>Remediation</strong>
+              <span>Confirm remediation â verify cancel â reverse â new pick task are all executed in EWM</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð¨âð¼</span>
+            <div class="sub-content">
+              <strong>Supervisor override</strong>
+              <span>As a supervisor, say "release delivery block 123456789" â confirm â verify block is cleared in EWM</span>
+            </div>
+          </div>
+          <div class="sub-item">
+            <span class="sub-icon">ð·</span>
+            <div class="sub-content">
+              <strong>Low quality photo</strong>
+              <span>Upload a blurred photo â expect a retake prompt and no writes to EWM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+
+
+  <!-- ââââââââââââââââââââââââââââââââââââââââââââââ
+       SUCCESS BOX
+  ââââââââââââââââââââââââââââââââââââââââââââââ -->
+  <div class="success-box">
+    <div class="big-icon">ð</div>
+    <div>
+      <h3>Your agent is live!</h3>
+      <p>
+        Warehouse workers can now open Joule on their Fiori launchpad or mobile device, say
+        <strong>"verify pallet"</strong>, upload a photo, and get an instant AI-powered
+        pass/fail report â with automatic EWM delivery blocking and one-click remediation
+        for incorrect picks.
+      </p>
+    </div>
+  </div>
+
+</body>
+</html>

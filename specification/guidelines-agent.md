@@ -15,12 +15,12 @@ Technical constraints and patterns for building Pro-Code AI Agents. Follow these
 - Required structure: `asset.yaml`, `app/`
 - Full layout from project root: `solution.yaml`, `assets/<asset-name>/asset.yaml`, `assets/<asset-name>/app/`
 - `asset.yaml` must use `buildPath: .` and `/.well-known/agent.json` for all health probes
-- Follow the `sap-agent-bootstrap` skill for project scaffolding — invoke directly from `assets/<asset-name>/`, use copy commands
+- Follow the `sap-agent-bootstrap` skill for project scaffolding â invoke directly from `assets/<asset-name>/`, use copy commands
 
 ## Key Constraints
 
 - When working with LangChain or LangGraph, you MUST NEVER use the `create_react_agent` function (`from langgraph.prebuilt import create_react_agent`) as it has been deprecated in LangChain 1.0. Instead, you should use the `from langchain.agents import create_agent` function.
-- **NEVER call SAP APIs directly** (no `requests`, `httpx`, or hand-rolled OData clients). All SAP API consumption MUST go through MCP servers via `gatewaySDK` + `MultiServerMCPClient`. Translation files are produced by the `mcp-translation-file` skill — the agent consumes them as tools, never as raw HTTP calls.
+- **NEVER call SAP APIs directly** (no `requests`, `httpx`, or hand-rolled OData clients). All SAP API consumption MUST go through MCP servers via `gatewaySDK` + `MultiServerMCPClient`. Translation files are produced by the `mcp-translation-file` skill â the agent consumes them as tools, never as raw HTTP calls.
 - Only use public APIs; mock any private systems (like S/4HANA) with minimal mock data
 - Exception: AI Core is fully available at runtime via LiteLLM (environment variables provided)
 - No Git operations, no authentication, no documentation/READMEs
@@ -38,8 +38,8 @@ Technical constraints and patterns for building Pro-Code AI Agents. Follow these
 
 ## Agent Decorators
 
-- The bootstrap template already includes decorator scaffolding — no separate skill invocation needed
-- **NEVER add new decorated functions to `app/agent.py`** — the three from the bootstrap template (`@agent_model`, `@agent_config` for temperature, `@prompt_section`) are the complete and final set. `@agent_config` is not a general-purpose decorator; it exposes parameters to the SAP platform UI and is intentionally limited to temperature. All other values (thresholds, limits, counts, etc.) must be plain Python constants.
+- The bootstrap template already includes decorator scaffolding â no separate skill invocation needed
+- **NEVER add new decorated functions to `app/agent.py`** â the three from the bootstrap template (`@agent_model`, `@agent_config` for temperature, `@prompt_section`) are the complete and final set. `@agent_config` is not a general-purpose decorator; it exposes parameters to the SAP platform UI and is intentionally limited to temperature. All other values (thresholds, limits, counts, etc.) must be plain Python constants.
 - Never mark decorator tasks complete until `sap_cloud_sdk.agent_decorators` imports exist in `app/agent.py`
 
 ## Agent Instrumentation
@@ -54,7 +54,7 @@ Technical constraints and patterns for building Pro-Code AI Agents. Follow these
 
 All SAP API integration MUST use this pattern. If the PRD or specification references any SAP API (OData, REST, events), MCP wiring is mandatory, not optional.
 
-Tools are loaded via the Agent Gateway SDK — no URLs, no ORD IDs, no `MultiServerMCPClient`. The SDK discovers all registered MCP servers automatically and returns LangChain-compatible tools directly.
+Tools are loaded via the Agent Gateway SDK â no URLs, no ORD IDs, no `MultiServerMCPClient`. The SDK discovers all registered MCP servers automatically and returns LangChain-compatible tools directly.
 
 When writing system instructions for the agent, explicitly instruct the agent not to hallucinate data.
 
@@ -67,9 +67,9 @@ async def _load_tools() -> list:
     return await get_mcp_tools()
 ```
 
-`mcp_tools.py` is the owned indirection layer produced by the bootstrap — import from there, never directly from `sap_cloud_sdk.agentgateway`. This is the target the test fixture patches.
+`mcp_tools.py` is the owned indirection layer produced by the bootstrap â import from there, never directly from `sap_cloud_sdk.agentgateway`. This is the target the test fixture patches.
 
-Call `_load_tools()` lazily (not in `__init__`) — it makes network calls. Wire the result into the agent graph:
+Call `_load_tools()` lazily (not in `__init__`) â it makes network calls. Wire the result into the agent graph:
 
 ```python
 class MyAgent:
@@ -103,10 +103,10 @@ Working directory for all test operations: `assets/<asset-name>/` (asset root).
 
 ### Boilerplate Files
 
-- `conftest.py` — shared fixtures, custom markers, writes `test_report.json` on full runs
-- `pytest.ini` — configures test discovery (`prebuilt_tests/`, `tests/`), default flags, markers
-- `requirements-test.txt` — test dependencies
-- `prebuilt_tests/` — pre-built structure and server tests; NEVER modify these
+- `conftest.py` â shared fixtures, custom markers, writes `test_report.json` on full runs
+- `pytest.ini` â configures test discovery (`prebuilt_tests/`, `tests/`), default flags, markers
+- `requirements-test.txt` â test dependencies
+- `prebuilt_tests/` â pre-built structure and server tests; NEVER modify these
 
 ### Writing Tests
 
@@ -117,11 +117,11 @@ Working directory for all test operations: `assets/<asset-name>/` (asset root).
 
 ### Running Tests
 
-- ALWAYS invoke as just `pytest` from asset root — no paths, no `--cov`, no `--json-report`, no extra flags
+- ALWAYS invoke as just `pytest` from asset root â no paths, no `--cov`, no `--json-report`, no extra flags
 - `pytest.ini` configures everything; extra CLI flags conflict with ini settings
 - Only exception: targeting a single test: `pytest path/to/test_file.py::test_name`
-- Coverage must be ≥ 70%; if below, add targeted tests until threshold met
-- Final `pytest` run (no args) MUST produce `test_report.json` — this only happens on full runs without arguments
+- Coverage must be â¥ 70%; if below, add targeted tests until threshold met
+- Final `pytest` run (no args) MUST produce `test_report.json` â this only happens on full runs without arguments
 
 ## Validation Checklist
 
@@ -143,7 +143,7 @@ ls assets/<asset-name>/test_report.json                  # must exist
 
 After all asset spec TODO items are complete, run the applicable path(s):
 
-### Path A — API spec files (OData/REST, no existing MCP server)
+### Path A â API spec files (OData/REST, no existing MCP server)
 
 Run when `specification/<asset-name>/api-specs/` contains API spec files (e.g. `supplier-invoices.json`) but **no** `mcp-spec-*.json` files.
 
@@ -154,11 +154,11 @@ Run when `specification/<asset-name>/api-specs/` contains API spec files (e.g. `
    - Register in `solution.yaml` under `assets`
    - Add to agent's `asset.yaml` under `tools.mcp-servers` with ORD IDs
 
-### Path B — MCP spec files (existing MCP server with known ORD ID)
+### Path B â MCP spec files (existing MCP server with known ORD ID)
 
 Run when `specification/<asset-name>/api-specs/` contains `mcp-spec-*.json` files captured during API discovery (step 2a).
 
-No translation or MCP server asset creation needed — the MCP server already exists externally.
+No translation or MCP server asset creation needed â the MCP server already exists externally.
 
 ### MCP Server Dependencies in asset.yaml
 

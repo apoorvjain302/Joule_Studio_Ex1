@@ -1,0 +1,91 @@
+apiVersion: asset.sap/v1
+kind: Asset
+
+metadata:
+  name: ewm-pallet-verification-agent
+  version: 1.0.0
+
+type: agent
+
+sourceRoot: "."
+
+agentCard:
+  name: EWM Pallet Verification Agent
+  version: 1.0.0
+  description: >
+    Verifies outbound pallet HU labels against SAP EWM delivery data using AI
+    photo analysis. Detects missing, extra, or unreadable HU labels, blocks
+    deliveries on critical mismatches, and remediates incorrect picks by
+    reversing warehouse tasks and creating replacement pick instructions.
+  capabilities:
+    skills:
+      - name: VerifyPalletLoading
+        description: >
+          Primary skill. Accepts a pallet photo and delivery number (or HU
+          barcode), fetches live EWM data, runs AI vision analysis, and
+          produces a structured pass/fail HU verification report.
+      - name: LookUpHUByBarcode
+        description: >
+          Sub-skill. Resolves an SSCC barcode scan to its associated EWM
+          outbound delivery number and warehouse number.
+      - name: GenerateVerificationReport
+        description: >
+          Sub-skill. Cross-references detected HUs against expected EWM
+          delivery HUs and formats a pass/fail report card for the worker.
+      - name: RemediateIncorrectHU
+        description: >
+          Sub-skill. Cancels picking, reverses warehouse tasks for incorrect
+          HUs, and creates new warehouse tasks to pick the correct HUs.
+      - name: SupervisorOverride
+        description: >
+          Sub-skill. Allows an authorised supervisor to release a delivery
+          block after reviewing the discrepancy report.
+  authentication:
+    type: bearer
+  supportedContentTypes:
+    - application/json
+    - image/jpeg
+    - image/png
+
+container:
+  buildPath: .
+  port: 5000
+
+probes:
+  startup:
+    path: /.well-known/agent.json
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 18
+  liveness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+models:
+  - executableId: azure-openai
+    name: gpt-4o
+    version: "2024-11-20"
+
+custom:
+  joule:
+    platform: SAP Build / SAP AI Launchpad
+    deploymentTarget: SAP AI Launchpad
+    embeddedSurfaces:
+      - SAP S/4HANA Fiori Launchpad
+      - SAP Mobile Start
+    visionConfidenceThreshold: 0.75
+    btpDestination: M20CLNT100
+    requiredRoles:
+      - WarehouseOperator
+      - WarehouseSupervisor
+    skillsRoot: "./skills"
+    actionsRoot: "./actions"

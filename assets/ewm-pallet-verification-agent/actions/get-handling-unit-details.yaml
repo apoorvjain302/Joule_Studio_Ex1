@@ -1,0 +1,72 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: GetHandlingUnitDetails
+  version: 1.0.0
+  description: >
+    Read the full details of a handling unit in SAP EWM, including its
+    contents (items), alternative IDs (barcodes), and reference documents
+    (e.g. outbound delivery assignment).
+
+api:
+  ordId: sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1
+  # SAP Build: upload handling-unit.json when creating this action in SAP Build Actions.
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+request:
+  method: GET
+  path: "/HandlingUnit/{HandlingUnitExternalID}/{Warehouse}"
+  queryParameters:
+    # OData v4: list each navigation property to expand individually.
+    $expand: "_HandlingUnitItem,_HandlingUnitAlternativeID,_HandlingUnitReferenceDoc"
+
+inputs:
+  - name: HandlingUnitExternalID
+    type: string
+    required: true
+    in: path
+    description: External HU ID (SSCC or EWM HU number).
+  - name: Warehouse
+    type: string
+    required: true
+    in: path
+    description: EWM warehouse number.
+
+outputs:
+  - name: HandlingUnitExternalID
+    type: string
+    sourcePath: "$.HandlingUnitExternalID"
+  - name: Warehouse
+    type: string
+    sourcePath: "$.Warehouse"
+  - name: HandlingUnitType
+    type: string
+    sourcePath: "$.HandlingUnitType"
+  - name: items
+    type: array
+    sourcePath: "$._HandlingUnitItem.value"
+    description: HU stock items â each has StockItemUUID, Product, Batch.
+  - name: alternativeIds
+    type: array
+    sourcePath: "$._HandlingUnitAlternativeID.value"
+    description: >
+      Alternative IDs â each has EWMHndlgUnitAltvIDType and
+      AlternativeHandlingUnitID (e.g. SSCC barcode value).
+  - name: referenceDocs
+    type: array
+    sourcePath: "$._HandlingUnitReferenceDoc.value"
+    description: >
+      Reference documents â each has HandlingUnitReferenceDocument
+      (the outbound delivery order number this HU is assigned to).
+
+errorHandling:
+  onHttpError:
+    userMessage: >
+      Could not retrieve HU {HandlingUnitExternalID} from SAP EWM:
+      {error.message}.
+  onNotFound:
+    userMessage: >
+      HU {HandlingUnitExternalID} was not found in warehouse {Warehouse}.
+      Please verify the HU ID and try again.

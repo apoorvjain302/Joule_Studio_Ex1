@@ -1,0 +1,97 @@
+apiVersion: joule.sap/v1
+kind: JouleSkill
+
+metadata:
+  name: SupervisorOverride
+  version: 1.0.0
+  description: >
+    Allows an authorised supervisor to release a delivery block set by the
+    EWM Pallet Verification Agent after reviewing the discrepancy report.
+    Access is restricted to users with the WarehouseSupervisor role.
+
+trigger:
+  type: user-triggered
+  phrases:
+    - "release delivery block"
+    - "override delivery block"
+    - "supervisor approval"
+    - "approve delivery"
+    - "unblock delivery"
+
+authorization:
+  requiredRoles:
+    - WarehouseSupervisor
+  onUnauthorized:
+    userMessage: >
+      You do not have permission to release delivery blocks.
+      Please contact your warehouse supervisor.
+    action: abort
+
+inputs:
+  - name: deliveryNumber
+    type: string
+    required: true
+    description: EWM outbound delivery order number to unblock.
+
+steps:
+  # ── Step 1: Fetch delivery discrepancy summary ────────────────────────────
+  - id: step-fetch-delivery
+    name: Fetch Delivery Details
+    type: action-invocation
+    action: GetOutboundDeliveryOrder
+    actionInputs:
+      EWMOutboundDeliveryOrder: "{deliveryNumber}"
+    outputMapping:
+      deliveryDetails: "$.response"
+    onFailure:
+      userMessage: >
+        Could not retrieve delivery {deliveryNumber} from SAP EWM.
+        Please verify the delivery number and try again.
+      action: abort
+
+  # ── Step 2: Present summary and require confirmation ──────────────────────
+  - id: step-supervisor-confirm
+    name: Supervisor Review and Confirmation
+    type: user-confirmation
+    dependsOn: step-fetch-delivery
+    requiresConfirmation: true
+    displayContent: |
+      ## Delivery Block Release — {deliveryNumber}
+
+      **Current Status:** Blocked (reason: HU_MISMATCH)
+      **Delivery:** {deliveryNumber}
+      **Items:** {deliveryDetails.itemCount}
+      **Blocking set by:** EWM Pallet Verification Agent
+
+      Please review the discrepancy that caused this block before releasing.
+      By confirming, you accept responsibility for authorising this shipment.
+    confirmationPrompt: >
+      I confirm I have reviewed the discrepancy and approve releasing
+      the block on delivery {deliveryNumber}.
+    onDenied:
+      userMessage: "Delivery block release cancelled. Delivery {deliveryNumber} remains blocked."
+      action: abort
+
+  # ── Step 3: Release delivery block ───────────────────────────────────────
+  - id: step-release-block
+    name: Release Delivery Block
+    type: action-invocation
+    dependsOn: step-supervisor-confirm
+    action: ReleaseDeliveryBlock
+    actionInputs:
+      EWMOutboundDeliveryOrder: "{deliveryNumber}"
+    onSuccess:
+      log: >
+        SupervisorOverride.achieved: delivery block released —
+        delivery={deliveryNumber}, supervisorUserId={currentUser.id},
+        timestamp={now()}
+      userMessage: >
+        ✅ Delivery block released for delivery {deliveryNumber}.
+        The delivery is now available for goods issue confirmation.
+    onFailure:
+      log: >
+        SupervisorOverride.missed: delivery block release failed —
+        delivery={deliveryNumber}, error={error_message}
+      userMessage: >
+        ❌ Could not release the block on delivery {deliveryNumber}.
+        Error: {error_message}. Please escalate to your EWM administrator.

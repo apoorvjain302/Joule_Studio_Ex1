@@ -1,0 +1,60 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: LookUpHUByBarcodeAction
+  version: 1.0.0
+  description: >
+    Resolves an SSCC barcode scan to the SAP EWM handling unit record.
+    Returns the HU external ID and warehouse. The associated outbound delivery
+    is then resolved by calling GetHandlingUnitDetails and reading referenceDocs.
+    Used when a worker initiates verification by scanning an HU label without
+    providing a delivery number.
+
+api:
+  ordId: sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1
+  # SAP Build: upload handling-unit.json when creating this action in SAP Build Actions.
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+request:
+  method: GET
+  path: "/HandlingUnitAlternativeID"
+  queryParameters:
+    # OData v4 filter: match SSCC type and the scanned barcode value.
+    $filter: "EWMHndlgUnitAltvIDType eq 'SSCC' and AlternativeHandlingUnitID eq '{scannedBarcode}'"
+    # NOTE: OData v4 does not support chained nested $expand (e.g. _HandlingUnit/_HandlingUnitReferenceDoc).
+    # Expand only the direct navigation property here; follow up with GetHandlingUnitDetails
+    # to retrieve reference documents.
+    $expand: "_HandlingUnit"
+    $top: "1"
+
+inputs:
+  - name: scannedBarcode
+    type: string
+    required: true
+    in: query-filter
+    description: SSCC barcode string extracted from the pallet photo.
+
+outputs:
+  - name: HandlingUnitExternalID
+    type: string
+    sourcePath: "$.value[0].HandlingUnitExternalID"
+  - name: Warehouse
+    type: string
+    sourcePath: "$.value[0].Warehouse"
+  - name: AlternativeHandlingUnitID
+    type: string
+    sourcePath: "$.value[0].AlternativeHandlingUnitID"
+    description: The scanned barcode value as confirmed by EWM.
+  # NOTE: To get the delivery reference, call GetHandlingUnitDetails
+  # with the resolved HandlingUnitExternalID and Warehouse.
+
+errorHandling:
+  onEmptyResult:
+    HandlingUnitExternalID: null
+    Warehouse: null
+    AlternativeHandlingUnitID: null
+  onHttpError:
+    userMessage: >
+      Could not look up barcode {scannedBarcode} in SAP EWM: {error.message}.

@@ -3,7 +3,7 @@
 **Title:** EWM Pallet Verification Agent  
 **Date:** 2026-04-29  
 **Owner:** Warehouse Operations / Supply Chain IT  
-**Solution Category:** AI Agent
+**Solution Category:** Joule Agent (Joule Skills & Actions)
 
 ---
 
@@ -81,6 +81,8 @@ Lena is a 42-year-old warehouse shift supervisor responsible for outbound delive
 - Cross-reference detected HUs against expected HUs on the delivery and report missing, extra, or unreadable HUs.
 - Generate a structured pass/fail verification report presented to the worker.
 - Block the EWM outbound delivery when critical mismatches are found; support supervisor override.
+- When an incorrect HU is identified on the pallet, cancel its picking and reverse the associated warehouse task in EWM.
+- Create a new warehouse task in EWM to pick the correct HU for the outbound delivery.
 - Instrument all business steps with structured log statements for observability.
 
 ### Non-Goals (Out of Scope)
@@ -169,23 +171,43 @@ Lena is a 42-year-old warehouse shift supervisor responsible for outbound delive
 - **Maps to Objective**: 1, 2
 - **Priority Rank**: 8
 
+**REQ-09: Cancel Picking and Reverse Warehouse Task for Incorrect HU**
+
+- **Problem to Solve**: When a wrong HU is detected on the pallet, the picking that placed it there must be undone in EWM to maintain inventory accuracy and prevent the incorrect HU from being re-loaded.
+- **User Story**: As a warehouse operator, I need the agent to cancel the picking of the incorrect HU and reverse its warehouse task in EWM so that the wrong HU is returned to storage and inventory is kept accurate.
+- **Acceptance Criteria**:
+  - Given an incorrect HU is confirmed on the pallet (mismatch verified with confidence above threshold), when the agent acts on the discrepancy, then it cancels the open picking task for that HU and reverses the corresponding warehouse task in EWM.
+  - Given the reversal is completed, then the HU stock status in EWM is updated to reflect it is no longer allocated to the outbound delivery.
+- **Maps to Objective**: 3
+- **Priority Rank**: 9
+
+**REQ-10: Create Warehouse Task to Pick Correct HU**
+
+- **Problem to Solve**: After an incorrect HU is removed from the pallet, the correct HU must be sourced and loaded, which requires a new warehouse task in EWM to direct the worker to the right storage location.
+- **User Story**: As a warehouse operator, I need the agent to create a new warehouse task in EWM for the correct HU so that I receive a pick instruction directing me to the right location to complete the delivery.
+- **Acceptance Criteria**:
+  - Given the incorrect HU has been reversed, when the agent creates a replacement task, then a new warehouse task is created in EWM for the correct HU associated with the outbound delivery, and the task reference is included in the verification report for the worker.
+  - Given the new warehouse task is created, then the worker is notified of the storage bin and HU to collect.
+- **Maps to Objective**: 1, 3
+- **Priority Rank**: 10
+
 ---
 
 ## Solution Architecture
 
 **Architecture Overview:**  
-A Python AI agent deployed on SAP App Foundation, communicating over the A2A protocol. The agent orchestrates a multimodal LLM for vision tasks and calls SAP EWM OData APIs directly for live data. Workers interact via any supported front-end channel.
+A SAP Joule Agent composed of Joule Skills and Joule Actions, authored in SAP Build and deployed via SAP AI Launchpad. Skills orchestrate the verification flow via natural language; Actions wrap EWM OData APIs as structured tool calls. Workers interact through the Joule conversational UI embedded in SAP S/4HANA, SAP Mobile Start, or any SAP Fiori launchpad surface.
 
 **Key Components:**
 
-- **AI Agent (Python, A2A)** — core orchestration logic; manages the verification workflow, tool calls, and report generation.
-- **Multimodal LLM (Vision Model)** — performs HU label detection, readability assessment, and barcode/text extraction from pallet photos.
-- **SAP EWM OData Integration Layer** — set of agent tools wrapping EWM OData APIs for delivery and HU data retrieval and delivery status updates.
-- **Input Channel Adapter** — normalises photo inputs from fixed camera, handheld scanner, mobile UI, and web upload into a uniform format for the agent.
+- **Joule Skills** — declarative natural-language skill definitions authored in SAP Build that orchestrate the end-to-end pallet verification and remediation flow.
+- **Joule Actions** — OData/REST integrations configured as structured tool calls within Joule, connecting to SAP EWM APIs without custom code.
+- **Multimodal LLM (Vision Model)** — invoked within a Joule Skill step to perform HU label detection, readability assessment, and barcode/text extraction from pallet photos (via SAP AI Core multimodal model).
+- **SAP EWM OData APIs** — backend data layer providing outbound delivery, HU, and warehouse task data; called exclusively through Joule Actions.
 
 **Integration Points:**
 
-- **SAP S/4HANA Cloud Private Edition (EWM)** — read outbound delivery order and HU details; write delivery block; accessed via OData APIs (`OP_API_OUTBOUND_DELIVERY_SRV_0002`, `OP_HANDLINGUNIT_0001`, `WAREHOUSEOUTBDELIVERYORDER_0001`).
+- **SAP S/4HANA Cloud Private Edition (EWM)** — read outbound delivery order and HU details; write delivery block; cancel picking tasks; reverse and create warehouse tasks; accessed via OData APIs (`OP_API_OUTBOUND_DELIVERY_SRV_0002`, `OP_HANDLINGUNIT_0001`, `WAREHOUSEOUTBDELIVERYORDER_0001`, EWM Warehouse Task OData API).
 
 **Deployment Environments:**
 
@@ -195,9 +217,10 @@ A Python AI agent deployed on SAP App Foundation, communicating over the A2A pro
 ### Agent Extensibility & Instrumentation
 
 **Agent Extensibility:**
-- The agent exposes extension points for adding new verification checks (e.g., expiry date validation, hazmat label compliance) without modifying the core verification flow.
-- Supervisor override logic is exposed as a distinct, replaceable tool so it can be adapted to different approval workflows.
-- Tool definitions follow the A2A protocol, allowing future integration of additional EWM capabilities (e.g., writing proof-of-delivery notes) without rewriting agent logic.
+- New verification checks (e.g., expiry date validation, hazmat label compliance) can be added as additional Joule Action steps within the skill flow without modifying core skill logic.
+- Supervisor override is modelled as a distinct Joule Skill branch, replaceable independently to accommodate different approval workflows.
+- Additional EWM capabilities (e.g., goods issue confirmation, proof-of-delivery notes) can be added as new Joule Actions and wired into existing or new skills.
+- The remediation flow (cancel picking → reverse warehouse task → create new warehouse task) is structured as a dedicated sub-skill (`RemediateIncorrectHU`), enabling the steps to be replaced or augmented (e.g., inserting a supervisor approval gate before warehouse task creation) without reworking the primary verification skill.
 
 **Business Step Instrumentation:**
 - Every milestone defined below must emit a structured log statement on achievement and on miss/skip.
@@ -206,36 +229,46 @@ A Python AI agent deployed on SAP App Foundation, communicating over the A2A pro
 
 ### Automation & Agent Behaviour
 
-**Automation Level:** Autonomous agent with human-in-the-loop for blocking overrides.
+**Automation Level:** Joule Skill-orchestrated agent with human-in-the-loop for blocking overrides and remediation confirmation.
 
 **Actions the system performs without human approval:**
-- Fetching outbound delivery and HU data from EWM.
-- Analysing pallet photo and extracting label data.
+- Fetching outbound delivery and HU data from EWM via Joule Actions.
+- Analysing pallet photo and extracting label data via multimodal LLM step in a Joule Skill.
 - Generating and delivering the verification report to the worker.
 - Setting a delivery block on EWM when a critical discrepancy is detected.
 
 **Actions that require human review or approval:**
-- Releasing a delivery block (supervisor override).
-- Proceeding with loading after a partial-confidence result (worker decision).
+- Releasing a delivery block (supervisor override via dedicated Joule Skill branch).
+- Proceeding with loading after a partial-confidence result (worker confirms via Joule conversational prompt).
+- Confirming remediation actions (cancel picking, reverse warehouse task, create new task) when confidence is borderline — Joule Skill prompts worker for confirmation before invoking write Actions.
 
-**Model or engine used:** Multimodal LLM with vision capability (e.g., GPT-4o via SAP Generative AI Hub).
+**Model or engine used:** Multimodal LLM with vision capability via SAP AI Core / SAP Generative AI Hub, invoked as a Joule Skill step.
 
 **Knowledge & data sources accessed:**
-- SAP EWM (S/4HANA Cloud Private Edition): outbound delivery orders, handling unit master data, label field catalog.
+- SAP EWM (S/4HANA Cloud Private Edition): outbound delivery orders, handling unit master data, warehouse tasks.
 
-**Tools or connectors invoked:**
-- `analyze_pallet_photo` — sends image to vision model; detects labels, assesses readability, extracts barcodes. Read-only.
-- `get_outbound_delivery` — reads delivery header, items, and assigned HU list from EWM. Read-only.
-- `get_handling_unit_details` — reads HU content, packing material, and delivery assignment from EWM. Read-only.
-- `lookup_hu_by_barcode` — resolves HU barcode/SSCC to outbound delivery assignment. Read-only.
-- `generate_verification_report` — cross-references detected vs. expected HUs; produces pass/fail report. Read-only.
-- `block_delivery` — sets blocking reason on EWM outbound delivery. **Write / high-risk** — triggered only on critical discrepancy.
+**Joule Skills defined:**
+- `VerifyPalletLoading` — primary skill; orchestrates the full pallet photo intake, EWM data fetch, HU matching, and report delivery flow.
+- `LookUpHUByBarcode` — sub-skill; resolves a scanned SSCC/barcode to its EWM delivery and HU assignment when no delivery number is provided.
+- `GenerateVerificationReport` — sub-skill; cross-references detected HUs against expected EWM HU list and formats pass/fail summary.
+- `RemediateIncorrectHU` — sub-skill; orchestrates cancel picking → reverse warehouse task → create new warehouse task for each mismatched HU.
+- `SupervisorOverride` — sub-skill; allows a supervisor to release a blocked delivery after reviewing the discrepancy report.
+
+**Joule Actions defined (OData integrations):**
+- `GetOutboundDeliveryOrder` — `GET /WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}` + items; ORD ID `sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1`. Read-only.
+- `GetHandlingUnitDetails` — `GET /HandlingUnit/{HandlingUnitExternalID}/{Warehouse}` + items; ORD ID `sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1`. Read-only.
+- `LookUpHUByBarcodeAction` — `GET /HandlingUnitAlternativeID` filtered by barcode; ORD ID `sap.s4:apiResource:OP_HANDLINGUNIT_0001:v1`. Read-only.
+- `BlockDelivery` — `PATCH /WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}` to set blocking reason; ORD ID `sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1`. **Write / high-risk**.
+- `CancelPickingTask` — cancel open warehouse task for the incorrect HU; ORD ID `sap.s4:apiResource:OP_WAREHOUSEORDER_0001:v1`. **Write / high-risk**.
+- `ReverseWarehouseTask` — reverse completed warehouse task to return incorrect HU to storage; ORD ID `sap.s4:apiResource:OP_WAREHOUSEORDER_0001:v1`. **Write / high-risk**.
+- `CreateWarehouseTask` — create new warehouse task to pick correct HU; ORD ID `sap.s4:apiResource:OP_WAREHOUSEORDER_0001:v1`. **Write / high-risk**.
 
 **Guardrails & fail-safes:**
-- `block_delivery` is called only when the vision model confidence exceeds the threshold AND a definitive HU mismatch is confirmed; it is never called on a low-confidence result.
-- If EWM API is unreachable, the agent surfaces a clear error message and does not deliver a result, prompting the worker to retry or escalate to the supervisor.
-- If photo confidence is below threshold, the agent requests a retake before proceeding.
-- All `block_delivery` invocations are logged with delivery number, timestamp, detected discrepancy, and worker ID for audit.
+- `BlockDelivery` Action is triggered only when vision model confidence exceeds threshold AND a definitive HU mismatch is confirmed; never called on a low-confidence result.
+- If an EWM Action call fails, the Joule Skill surfaces a clear error message and halts the flow, prompting the worker to retry or escalate to a supervisor.
+- If photo confidence is below threshold, the skill presents a conversational prompt asking the worker to retake the photo before proceeding.
+- All write Action invocations (`BlockDelivery`, `CancelPickingTask`, `ReverseWarehouseTask`, `CreateWarehouseTask`) are logged with delivery number, HU ID, task ID, timestamp, and worker ID for audit.
+- Remediation Actions (`CancelPickingTask`, `ReverseWarehouseTask`, `CreateWarehouseTask`) are only invoked after worker or supervisor confirmation via Joule conversational turn.
 
 ---
 
@@ -275,6 +308,13 @@ A Python AI agent deployed on SAP App Foundation, communicating over the A2A pro
 - **Achieved when**: Report is returned to the worker AND delivery block is set (if applicable).
 - **Log on achievement**: `M5.achieved: verification report delivered — status={PASS|FAIL}, delivery_blocked={true|false}`
 - **Log on miss**: `M5.missed: verification report generation failed — worker notified to escalate`
+
+### M6: Incorrect HU Remediation Completed
+
+- **Description**: For each wrong HU identified on the pallet, the picking has been cancelled, the warehouse task reversed, and a new warehouse task created to pick the correct HU.
+- **Achieved when**: EWM confirms the picking cancellation, warehouse task reversal, and new warehouse task creation for all mismatched HUs.
+- **Log on achievement**: `M6.achieved: HU remediation completed — reversed_tasks={n}, created_tasks={n}, delivery={number}`
+- **Log on miss**: `M6.missed: HU remediation partially failed — failed_reversals={n}, failed_creations={n}, delivery={number}, worker notified to escalate`
 
 ---
 

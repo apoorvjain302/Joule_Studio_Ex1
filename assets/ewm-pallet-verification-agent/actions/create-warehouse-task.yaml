@@ -1,0 +1,85 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: CreateWarehouseTask
+  version: 1.0.0
+  description: >
+    Creates a new warehouse task in SAP EWM directing a worker to pick the
+    correct handling unit for an outbound delivery. Used as the final step
+    of the HU remediation flow after the incorrect HU has been reversed.
+    HIGH-RISK WRITE ACTION â requires explicit confirmation before execution.
+
+api:
+  ordId: sap.s4:apiResource:OP_WAREHOUSEORDER_0001:v1
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+riskLevel: high
+requiresConfirmation: true
+
+request:
+  method: POST
+  path: "/WarehouseOrder/{WarehouseNumber}/{WarehouseOrder}/SAP__self.CreateWarehouseTask"
+  headers:
+    Content-Type: "application/json"
+  body:
+    HandlingUnitExternalID: "{HandlingUnitExternalID}"
+    DestinationStorageBin: "{DestinationStorageBin}"
+
+inputs:
+  - name: WarehouseNumber
+    type: string
+    required: true
+    in: path
+    description: EWM warehouse number.
+  - name: WarehouseOrder
+    type: string
+    required: true
+    in: path
+    description: EWM warehouse order to create the task under.
+  - name: HandlingUnitExternalID
+    type: string
+    required: true
+    in: body
+    description: HU external ID to be picked.
+  - name: DestinationStorageBin
+    type: string
+    required: true
+    in: body
+    description: Destination bin (typically the outbound staging area or loading dock).
+
+outputs:
+  - name: WarehouseTask
+    type: string
+    sourcePath: "$.WarehouseTask"
+    description: Newly created warehouse task number.
+  - name: WarehouseOrder
+    type: string
+    value: "{WarehouseOrder}"
+  - name: HandlingUnitExternalID
+    type: string
+    value: "{HandlingUnitExternalID}"
+  - name: SourceStorageBin
+    type: string
+    sourcePath: "$.SourceStorageBin"
+    description: Source bin from which the worker should pick the HU.
+  - name: DestinationStorageBin
+    type: string
+    value: "{DestinationStorageBin}"
+
+auditLog:
+  enabled: true
+  fields:
+    - WarehouseNumber
+    - WarehouseOrder
+    - HandlingUnitExternalID
+    - DestinationStorageBin
+    - currentUser.id
+    - timestamp
+
+errorHandling:
+  onHttpError:
+    userMessage: >
+      Could not create a warehouse task for HU {HandlingUnitExternalID}:
+      {error.message}. Please escalate to your EWM administrator.

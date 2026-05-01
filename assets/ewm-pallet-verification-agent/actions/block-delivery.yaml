@@ -1,0 +1,68 @@
+apiVersion: joule.sap/v1
+kind: JouleAction
+
+metadata:
+  name: BlockDelivery
+  version: 1.0.0
+  description: >
+    Sets a delivery block reason on an EWM outbound delivery order to prevent
+    goods issue confirmation. Triggered only when a critical HU mismatch is
+    confirmed with vision confidence above threshold.
+    HIGH-RISK WRITE ACTION â requires explicit user confirmation before execution.
+
+api:
+  ordId: sap.s4:apiResource:WAREHOUSEOUTBDELIVERYORDER_0001:v1
+  # SAP Build: upload warehouse-outbound-delivery-order.json when creating this action.
+  btpDestination: M20CLNT100
+  authentication: oauth2-client-credentials
+
+riskLevel: high
+requiresConfirmation: true
+
+request:
+  method: PATCH
+  path: "/WhseOutboundDeliveryOrderHead/{EWMOutboundDeliveryOrder}"
+  headers:
+    Content-Type: "application/json"
+    If-Match: "*"
+  body:
+    # EWMDeliveryBlockReason is the correct writable field for delivery blocking in EWM OData v4.
+    # OverallBlockingStatus is a derived/read-only status field â do not write to it directly.
+    EWMDeliveryBlockReason: "{blockingReason}"
+
+inputs:
+  - name: EWMOutboundDeliveryOrder
+    type: string
+    required: true
+    in: path
+    description: EWM outbound delivery order number to block.
+  - name: blockingReason
+    type: string
+    required: false
+    default: "Z1"
+    description: >
+      EWM delivery block reason code. Use a customer-defined reason code
+      configured in your EWM system (e.g. Z1 = HU Mismatch).
+      Must be a valid value from Customizing table /SCWM/T_DLV_BLK.
+
+outputs:
+  - name: blocked
+    type: boolean
+    value: true
+  - name: EWMOutboundDeliveryOrder
+    type: string
+    sourcePath: "$.EWMOutboundDeliveryOrder"
+
+auditLog:
+  enabled: true
+  fields:
+    - EWMOutboundDeliveryOrder
+    - blockingReason
+    - currentUser.id
+    - timestamp
+
+errorHandling:
+  onHttpError:
+    userMessage: >
+      Could not block delivery {EWMOutboundDeliveryOrder}: {error.message}.
+      Please escalate to your EWM administrator.

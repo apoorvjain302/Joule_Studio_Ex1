@@ -15,6 +15,6 @@ Rules and constraints for executing specifications. Follow these throughout exec
 - Never mark an item complete without verifying the implementation exists
 - Never mark a task complete if the referenced artifact (file, function, config) is missing or broken
 - Run the validation checklist in the asset-specific guidelines (if any) before marking the final item complete
-- If a TODO references a skill invocation, "complete" means the skill's entire workflow finished — not just that the skill was called
+- If a TODO references a skill invocation, "complete" means the skill's entire workflow finished â not just that the skill was called
 
 

@@ -1,0 +1,103 @@
+apiVersion: joule.sap/v1
+kind: JouleSkill
+
+metadata:
+  name: GenerateVerificationReport
+  version: 1.0.0
+  description: >
+    Sub-skill. Cross-references the list of detected HUs (from photo analysis)
+    against the expected HU list from the EWM outbound delivery. Classifies
+    each HU as matched, missing, extra, or unreadable, and formats a
+    structured pass/fail report card for the worker.
+
+trigger:
+  type: sub-skill-only
+
+inputs:
+  - name: detectedHUs
+    type: array
+    itemType: object
+    required: true
+    description: >
+      Array of detected HUs from the vision model.
+      Each item: { huId: string, readable: boolean, confidence: float }
+  - name: expectedHUs
+    type: array
+    itemType: string
+    required: true
+    description: >
+      Array of HU external IDs expected on the delivery (from EWM).
+  - name: deliveryNumber
+    type: string
+    required: true
+    description: EWM outbound delivery order number (for display in the report).
+  - name: warehouseNumber
+    type: string
+    required: true
+    description: EWM warehouse number (for display in the report).
+
+outputs:
+  - name: matchResult
+    type: object
+    description: >
+      Object containing:
+        status (PASS | FAIL),
+        matched (array of HU IDs),
+        missing (HUs in expected but not detected),
+        extra (HUs detected but not in expected),
+        unreadable (HUs detected but readable=false).
+  - name: reportCard
+    type: string
+    description: Human-readable Joule chat report card (markdown).
+
+steps:
+  - id: step-cross-reference
+    name: Cross-Reference HUs
+    type: data-transformation
+    logic: |
+      detectedIds   = [hu.huId for hu in detectedHUs if hu.readable]
+      unreadableIds = [hu.huId for hu in detectedHUs if not hu.readable]
+      matched       = [id for id in detectedIds if id in expectedHUs]
+      missing       = [id for id in expectedHUs if id not in detectedIds and id not in unreadableIds]
+      extra         = [id for id in detectedIds if id not in expectedHUs]
+      status        = "PASS" if not missing and not extra and not unreadableIds else "FAIL"
+      matchResult   = {
+        "status":     status,
+        "matched":    matched,
+        "missing":    missing,
+        "extra":      extra,
+        "unreadable": unreadableIds
+      }
+
+  - id: step-format-report
+    name: Format Report Card
+    type: template-render
+    dependsOn: step-cross-reference
+    template: |
+      ## Pallet Verification Report
+      **Delivery:** {deliveryNumber}  |  **Warehouse:** {warehouseNumber}
+      **Overall Status:** {status_icon} {matchResult.status}
+
+      | HU ID | Status |
+      |-------|--------|
+      {%- for hu in expectedHUs %}
+      | {{ hu }} | {{ "✓ Matched" if hu in matchResult.matched else ("✗ Missing" if hu in matchResult.missing else "⚠ Unreadable") }} |
+      {%- endfor %}
+      {%- for hu in matchResult.extra %}
+      | {{ hu }} | ⛔ Extra (not on delivery) |
+      {%- endfor %}
+
+      **Summary:** {{ matchResult.matched|length }} matched,
+      {{ matchResult.missing|length }} missing,
+      {{ matchResult.extra|length }} extra,
+      {{ matchResult.unreadable|length }} unreadable.
+
+      {%- if matchResult.status == "FAIL" %}
+      ⚠ Action required before loading. Contact your supervisor if you cannot resolve the discrepancies.
+      {%- else %}
+      ✅ All HUs verified. You may proceed with loading.
+      {%- endif %}
+    variables:
+      status_icon: "{{ '✅' if matchResult.status == 'PASS' else '❌' }}"
+    outputMapping:
+      reportCard: "$.rendered"

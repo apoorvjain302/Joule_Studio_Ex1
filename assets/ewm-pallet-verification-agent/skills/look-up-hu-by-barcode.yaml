@@ -1,0 +1,66 @@
+apiVersion: joule.sap/v1
+kind: JouleSkill
+
+metadata:
+  name: LookUpHUByBarcode
+  version: 1.0.0
+  description: >
+    Sub-skill. Resolves a scanned SSCC barcode to its associated EWM
+    outbound delivery number and warehouse number. Called by
+    VerifyPalletLoading when no delivery number is supplied by the worker.
+    Two-step: first resolves HU ID from barcode, then fetches HU reference
+    documents to extract the outbound delivery number.
+
+trigger:
+  type: sub-skill-only
+
+inputs:
+  - name: scannedBarcode
+    type: string
+    required: true
+    description: SSCC barcode or HU external ID extracted from the pallet photo.
+
+outputs:
+  - name: resolvedDeliveryNumber
+    type: string
+    description: EWM outbound delivery order number linked to the scanned HU.
+  - name: resolvedWarehouseNumber
+    type: string
+    description: EWM warehouse number linked to the scanned HU.
+  - name: resolvedHUId
+    type: string
+    description: Resolved HU external ID for the scanned barcode.
+
+steps:
+  # Step 1: resolve HU ID from barcode
+  - id: step-lookup-by-barcode
+    name: Resolve HU from Barcode
+    type: action-invocation
+    action: LookUpHUByBarcodeAction
+    actionInputs:
+      scannedBarcode: "{scannedBarcode}"
+    outputMapping:
+      resolvedHUId: "$.HandlingUnitExternalID"
+      resolvedWarehouseNumber: "$.Warehouse"
+    onEmptyResult:
+      resolvedHUId: null
+      resolvedWarehouseNumber: null
+      resolvedDeliveryNumber: null
+
+  # Step 2: fetch HU reference docs to get the outbound delivery number
+  - id: step-fetch-hu-details
+    name: Fetch HU Reference Documents
+    type: action-invocation
+    dependsOn: step-lookup-by-barcode
+    condition: "resolvedHUId != null"
+    action: GetHandlingUnitDetails
+    actionInputs:
+      HandlingUnitExternalID: "{resolvedHUId}"
+      Warehouse: "{resolvedWarehouseNumber}"
+    outputMapping:
+      # The first reference document on an outbound HU is the delivery order number.
+      resolvedDeliveryNumber: "$.referenceDocs[0].HandlingUnitReferenceDocument"
+    onEmptyResult:
+      resolvedDeliveryNumber: null
+    onFailure:
+      resolvedDeliveryNumber: null

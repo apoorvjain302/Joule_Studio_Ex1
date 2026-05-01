@@ -1,0 +1,236 @@
+apiVersion: joule.sap/v1
+kind: JouleSkill
+
+metadata:
+  name: VerifyPalletLoading
+  version: 1.0.0
+  description: >
+    Verify the HU labels on a pallet against the SAP EWM outbound delivery
+    before loading. Accepts a pallet photo and delivery number or HU barcode.
+
+trigger:
+  phrases:
+    - "verify pallet"
+    - "check pallet labels"
+    - "scan pallet"
+    - "pallet verification"
+    - "loading check"
+    - "verify loading"
+
+inputs:
+  - name: deliveryNumber
+    type: string
+    required: false
+    description: >
+      EWM outbound delivery order number. Optional — resolved from photo
+      barcode if not provided.
+  - name: palletPhoto
+    type: file
+    required: true
+    description: >
+      Photo of the pallet to verify. Accepted formats: JPEG, PNG. Max 10 MB.
+    mimeTypes:
+      - image/jpeg
+      - image/png
+    maxSizeBytes: 10485760
+  - name: warehouseNumber
+    type: string
+    required: true
+    description: EWM warehouse number. Can default from user profile.
+
+constants:
+  VISION_CONFIDENCE_THRESHOLD: 0.75
+
+steps:
+  # ── M1: Photo Intake ──────────────────────────────────────────────────────
+  - id: step-photo-intake
+    name: Photo Intake
+    milestone: M1
+    type: input-validation
+    description: Validate the received pallet photo.
+    validate:
+      - field: palletPhoto
+        notNull: true
+        mimeTypes: ["image/jpeg", "image/png"]
+        maxSizeBytes: 10485760
+    onSuccess:
+      log: "M1.achieved: pallet photo ingested successfully from channel=joule, delivery={deliveryNumber}"
+    onFailure:
+      log: "M1.missed: pallet photo ingestion failed — invalid format or missing image"
+      userMessage: >
+        I could not process your photo. Please ensure it is a JPEG or PNG
+        image under 10 MB and try again.
+      action: retry
+
+  # ── M2: AI Vision Analysis ────────────────────────────────────────────────
+  - id: step-vision-analysis
+    name: AI Vision Analysis
+    milestone: M2
+    type: ai-model-invocation
+    dependsOn: step-photo-intake
+    model:
+      executableId: azure-openai
+      name: gpt-4o
+    prompt: |
+      You are an expert warehouse label verification system.
+      Analyse the provided pallet photo carefully.
+      For each visible handling unit (HU) label:
+        1. State whether the label is physically present and readable (true/false).
+        2. Extract the SSCC barcode or HU ID text exactly as printed.
+        3. Provide a confidence score between 0.0 and 1.0 for the detection.
+      Return ONLY a JSON array in this exact format (no extra text):
+      [
+        { "huId": "<HU_ID_or_SSCC>", "readable": true, "confidence": 0.95 },
+        ...
+      ]
+      If no labels are visible return an empty array [].
+      Do NOT hallucinate or invent HU IDs — only report what is visibly present.
+    outputMapping:
+      detectedHUs: "$.response"
+    onSuccess:
+      log: "M2.achieved: HU labels detected — count={detectedHUs.length}, low_readability_flags={detectedHUs.filter(h=>!h.readable).length}"
+    onFailure:
+      log: "M2.missed: AI vision analysis failed — error={error_message}"
+      userMessage: >
+        The AI model could not analyse the photo. Please try again.
+      action: halt
+
+  # ── M2 confidence check (separate step for clarity) ───────────────────────
+  - id: step-confidence-check
+    name: Vision Confidence Check
+    type: conditional
+    dependsOn: step-vision-analysis
+    # Guard: if no HUs detected at all, ask for a retake.
+    conditions:
+      - if: "detectedHUs.length == 0"
+        then:
+          log: "M2.missed: no HU labels detected in photo — retake requested"
+          userMessage: >
+            No HU labels were detected in the photo. Please retake the
+            photo ensuring all HU labels are visible and try again.
+          action: retry-from-step-photo-intake
+      - if: "detectedHUs.filter(h => h.confidence < VISION_CONFIDENCE_THRESHOLD).length == detectedHUs.length"
+        then:
+          log: "M2.missed: HU label detection confidence below threshold — retake requested"
+          userMessage: >
+            The photo quality is too low for reliable verification.
+            Please retake the photo with better lighting or move closer
+            to the pallet labels, then try again.
+          action: retry-from-step-photo-intake
+
+  # ── Delivery Resolution (only when no deliveryNumber provided) ─────────────
+  - id: step-delivery-resolution
+    name: Delivery Resolution from Barcode
+    type: conditional-sub-skill
+    dependsOn: step-confidence-check
+    # Only attempt barcode lookup when delivery number is missing AND at least
+    # one readable HU was detected with a valid huId.
+    condition: >
+      (deliveryNumber == null or deliveryNumber == '')
+      and detectedHUs.filter(h => h.readable and h.huId != null).length > 0
+    subSkill: LookUpHUByBarcode
+    subSkillInputs:
+      scannedBarcode: "{detectedHUs.filter(h => h.readable)[0].huId}"
+    outputMapping:
+      deliveryNumber: "$.resolvedDeliveryNumber"
+      warehouseNumber: "$.resolvedWarehouseNumber"
+    onNotResolved:
+      userMessage: >
+        I could not resolve a delivery number from the HU barcodes.
+        Please enter your outbound delivery number manually.
+      action: prompt-user-for-input
+      inputSlot: deliveryNumber
+
+  # ── M3: EWM Data Fetch ────────────────────────────────────────────────────
+  - id: step-ewm-fetch
+    name: EWM Delivery Data Fetch
+    milestone: M3
+    type: action-invocation
+    dependsOn: step-delivery-resolution
+    action: GetOutboundDeliveryOrder
+    actionInputs:
+      EWMOutboundDeliveryOrder: "{deliveryNumber}"
+    outputMapping:
+      expectedHUs: "$.items.map(i => i.HandlingUnitExternalID).filter(id => id != null)"
+      deliveryStatus: "$.GoodsIssueStatus"
+    onSuccess:
+      log: "M3.achieved: EWM delivery data fetched — delivery={deliveryNumber}, expected_HU_count={expectedHUs.length}"
+    onFailure:
+      log: "M3.missed: EWM delivery data fetch failed — delivery={deliveryNumber}, error={error_message}"
+      userMessage: >
+        I could not retrieve delivery data from SAP EWM for delivery
+        {deliveryNumber}. Please check the delivery number and try again,
+        or escalate to your supervisor if the problem persists.
+      action: halt
+
+  # ── M4: HU Matching ───────────────────────────────────────────────────────
+  - id: step-hu-matching
+    name: HU Matching
+    milestone: M4
+    type: sub-skill-invocation
+    dependsOn: step-ewm-fetch
+    subSkill: GenerateVerificationReport
+    subSkillInputs:
+      detectedHUs: "{detectedHUs}"
+      expectedHUs: "{expectedHUs}"
+      deliveryNumber: "{deliveryNumber}"
+      warehouseNumber: "{warehouseNumber}"
+    outputMapping:
+      matchResult: "$.matchResult"
+      reportCard: "$.reportCard"
+    onSuccess:
+      log: "M4.achieved: HU matching completed — matched={matchResult.matched.length}, missing={matchResult.missing.length}, extra={matchResult.extra.length}, unreadable={matchResult.unreadable.length}"
+    onFailure:
+      log: "M4.missed: HU matching could not be completed — insufficient label data or delivery data unavailable"
+      userMessage: >
+        HU matching could not be completed. Please escalate to your supervisor.
+      action: halt
+
+  # ── M5: Report & Blocking ─────────────────────────────────────────────────
+  - id: step-report-and-block
+    name: Verification Report and Delivery Blocking
+    milestone: M5
+    type: composite
+    dependsOn: step-hu-matching
+    actions:
+      - type: present-to-user
+        content: "{reportCard}"
+
+      - type: conditional-action-invocation
+        condition: >
+          (matchResult.extra.length > 0 or matchResult.missing.length > 0)
+          and detectedHUs.every(h => h.confidence >= VISION_CONFIDENCE_THRESHOLD)
+        action: BlockDelivery
+        requiresConfirmation: true
+        confirmationPrompt: >
+          Discrepancies were found on delivery {deliveryNumber}.
+          I will now block this delivery to prevent accidental goods issue.
+          Do you confirm?
+        actionInputs:
+          EWMOutboundDeliveryOrder: "{deliveryNumber}"
+          blockingReason: "Z1"
+        outputMapping:
+          deliveryBlocked: true
+        onSkip:
+          deliveryBlocked: false
+
+      - type: conditional-prompt
+        condition: "matchResult.extra.length > 0 or matchResult.missing.length > 0"
+        prompt: >
+          Incorrect HUs were found. Do you want me to remediate them now?
+          I will cancel the incorrect picks and create new tasks for the
+          correct HUs.
+        onConfirm:
+          subSkill: RemediateIncorrectHU
+          subSkillInputs:
+            deliveryNumber: "{deliveryNumber}"
+            warehouseNumber: "{warehouseNumber}"
+            incorrectHUIds: "{matchResult.extra}"
+            correctHUIds: "{matchResult.missing}"
+
+    onSuccess:
+      log: "M5.achieved: verification report delivered — status={matchResult.status}, delivery_blocked={deliveryBlocked}"
+    onFailure:
+      log: "M5.missed: verification report generation failed — worker notified to escalate"
+      userMessage: >
+        Verification report generation failed. Please escalate to your supervisor.

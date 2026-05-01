@@ -1,0 +1,213 @@
+apiVersion: joule.sap/v1
+kind: JouleSkill
+
+metadata:
+  name: RemediateIncorrectHU
+  version: 1.0.0
+  description: >
+    Remediates incorrectly picked HUs on a pallet. For each wrong HU:
+    fetches its open warehouse tasks, cancels the picking task, reverses
+    the warehouse task to return the HU to storage, and creates a new
+    warehouse task to pick the correct HU.
+    All write actions require explicit worker or supervisor confirmation
+    before execution.
+
+trigger:
+  type: both
+  phrases:
+    - "remediate incorrect HU"
+    - "reverse wrong pick"
+    - "fix wrong pallet"
+    - "cancel picking"
+    - "undo wrong pick"
+
+inputs:
+  - name: deliveryNumber
+    type: string
+    required: true
+    description: EWM outbound delivery order number.
+  - name: warehouseNumber
+    type: string
+    required: true
+    description: EWM warehouse number.
+  - name: incorrectHUIds
+    type: array
+    itemType: string
+    required: true
+    description: List of HU IDs that are wrongly placed on the pallet.
+  - name: correctHUIds
+    type: array
+    itemType: string
+    required: true
+    description: List of HU IDs that should be on the pallet instead.
+
+steps:
+  # ── Step 1: Confirm with worker / supervisor ──────────────────────────────
+  - id: step-confirm
+    name: Worker / Supervisor Confirmation
+    type: user-confirmation
+    requiresConfirmation: true
+    confirmationPrompt: >
+      I will perform the following actions on delivery {deliveryNumber}:
+        • Cancel picking tasks for: {incorrectHUIds}
+        • Reverse their warehouse tasks (returning HUs to storage)
+        • Create new pick tasks for: {correctHUIds}
+      Do you confirm? This cannot be undone automatically.
+    onDenied:
+      userMessage: "Remediation cancelled. No changes were made to SAP EWM."
+      action: abort
+
+  # ── Step 2: Fetch open warehouse tasks for each incorrect HU ──────────────
+  # Resolves WarehouseOrder + WarehouseTask IDs needed for cancel/reverse steps.
+  - id: step-fetch-tasks
+    name: Fetch Open Warehouse Tasks
+    type: loop-action-invocation
+    dependsOn: step-confirm
+    forEach: incorrectHUId in incorrectHUIds
+    action: GetWarehouseTasksForDelivery
+    actionInputs:
+      WarehouseNumber: "{warehouseNumber}"
+      HandlingUnitExternalID: "{incorrectHUId}"
+    collectOutputs: openTasksByHU
+    # openTasksByHU is a list of { huId, tasks[] } — one entry per incorrectHUId.
+    onItemFailure:
+      log: >
+        M6.missed: could not fetch warehouse tasks for HU={incorrectHUId},
+        delivery={deliveryNumber}, error={error_message}
+      action: continue-loop-and-flag
+
+  # ── Step 3: Cancel picking task for each incorrect HU ─────────────────────
+  - id: step-cancel-picking
+    name: Cancel Picking Tasks
+    type: loop-action-invocation
+    dependsOn: step-fetch-tasks
+    forEach: entry in openTasksByHU
+    # Use the first open task per HU (there should be only one active picking task).
+    condition: "entry.tasks.length > 0"
+    action: CancelPickingTask
+    actionInputs:
+      WarehouseNumber: "{warehouseNumber}"
+      WarehouseOrder: "{entry.tasks[0].WarehouseOrder}"
+      WarehouseTask: "{entry.tasks[0].WarehouseTask}"
+    collectOutputs: cancelledTasks
+    onItemFailure:
+      log: >
+        M6.missed: cancel picking failed for HU={entry.huId},
+        delivery={deliveryNumber}, error={error_message}
+      userMessage: >
+        Could not cancel picking for HU {entry.huId}.
+        Please escalate to your supervisor.
+      action: continue-loop-and-flag
+
+  # ── Step 4: Reverse warehouse tasks ───────────────────────────────────────
+  - id: step-reverse-tasks
+    name: Reverse Warehouse Tasks
+    type: loop-action-invocation
+    dependsOn: step-cancel-picking
+    forEach: task in cancelledTasks
+    action: ReverseWarehouseTask
+    actionInputs:
+      WarehouseNumber: "{warehouseNumber}"
+      WarehouseOrder: "{task.WarehouseOrder}"
+      WarehouseTask: "{task.WarehouseTask}"
+    collectOutputs: reversedTasks
+    onItemFailure:
+      log: >
+        M6.missed: warehouse task reversal failed for task={task.WarehouseTask},
+        delivery={deliveryNumber}, error={error_message}
+      userMessage: >
+        Could not reverse warehouse task {task.WarehouseTask}.
+        Please escalate to your supervisor.
+      action: continue-loop-and-flag
+
+  # ── Step 5: Create new pick tasks for correct HUs ─────────────────────────
+  # Fetch the warehouse order for the delivery first, then create tasks.
+  - id: step-fetch-delivery-order
+    name: Fetch Delivery Warehouse Order
+    type: action-invocation
+    dependsOn: step-reverse-tasks
+    action: GetOutboundDeliveryOrder
+    actionInputs:
+      EWMOutboundDeliveryOrder: "{deliveryNumber}"
+    outputMapping:
+      deliveryItems: "$.items"
+    onFailure:
+      log: >
+        M6.missed: could not fetch delivery order for new task creation —
+        delivery={deliveryNumber}, error={error_message}
+      action: halt
+
+  - id: step-create-tasks
+    name: Create New Warehouse Tasks
+    type: loop-action-invocation
+    dependsOn: step-fetch-delivery-order
+    forEach: correctHUId in correctHUIds
+    action: CreateWarehouseTask
+    actionInputs:
+      WarehouseNumber: "{warehouseNumber}"
+      # Use the WarehouseOrder from the first reversed task (same order for the delivery).
+      WarehouseOrder: "{reversedTasks[0].WarehouseOrder}"
+      HandlingUnitExternalID: "{correctHUId}"
+      # Destination bin: use the staging/loading bin from the delivery item for this HU.
+      DestinationStorageBin: >
+        {deliveryItems
+          .filter(item => item.HandlingUnitExternalID == correctHUId)[0]
+          ?.DestinationStorageBin ?? reversedTasks[0].DestinationStorageBin}
+    collectOutputs: createdTasks
+    onItemFailure:
+      log: >
+        M6.missed: warehouse task creation failed for HU={correctHUId},
+        delivery={deliveryNumber}, error={error_message}
+      userMessage: >
+        Could not create a new warehouse task for HU {correctHUId}.
+        Please escalate to your supervisor.
+      action: continue-loop-and-flag
+
+  # ── Step 6: M6 — Remediation outcome report ──────────────────────────────
+  - id: step-remediation-report
+    name: Remediation Outcome Report
+    milestone: M6
+    type: composite
+    dependsOn: step-create-tasks
+    actions:
+      - type: evaluate
+        logic: |
+          failed_reversals = len([t for t in reversedTasks if t.failed])
+          failed_creations = len([t for t in createdTasks if t.failed])
+          success = failed_reversals == 0 and failed_creations == 0
+
+      - type: conditional-log
+        condition: success
+        onTrue:
+          log: >
+            M6.achieved: HU remediation completed —
+            reversed_tasks={len(reversedTasks)}, created_tasks={len(createdTasks)},
+            delivery={deliveryNumber}
+        onFalse:
+          log: >
+            M6.missed: HU remediation partially failed —
+            failed_reversals={failed_reversals}, failed_creations={failed_creations},
+            delivery={deliveryNumber}, worker notified to escalate
+
+      - type: present-to-user
+        template: |
+          ## Remediation Summary — Delivery {deliveryNumber}
+
+          **Reversed tasks:** {len(reversedTasks) - failed_reversals} of {len(reversedTasks)}
+          **New pick tasks created:** {len(createdTasks) - failed_creations} of {len(createdTasks)}
+
+          {%- if createdTasks %}
+          ### New Pick Instructions
+          | HU ID | Warehouse Task | Pick from Bin | Destination Bin |
+          |-------|---------------|--------------|-----------------|
+          {%- for t in createdTasks if not t.failed %}
+          | {{ t.HandlingUnitExternalID }} | {{ t.WarehouseTask }} | {{ t.SourceStorageBin }} | {{ t.DestinationStorageBin }} |
+          {%- endfor %}
+          {%- endif %}
+
+          {%- if failed_reversals > 0 or failed_creations > 0 %}
+          ⚠ Some steps could not be completed automatically.
+          Please escalate the flagged items to your supervisor.
+          {%- else %}
+          ✅ Remediation complete. New pick instructions are shown above.
+          {%- endif %}

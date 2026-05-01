@@ -3,11 +3,11 @@ kind: Solution
 
 metadata:
   name: ewm-pallet-verification
-  version: "1.0.0"
-  description: "AI-powered pallet verification agent for SAP EWM outbound loading — detects HU labels via vision AI and cross-references against live EWM delivery data."
+  version: 1.0.0
+  description: >
+    EWM Pallet Verification Joule Agent — AI-powered outbound pallet HU label
+    verification and remediation using SAP Joule Skills and Actions against
+    SAP S/4HANA Cloud Private Edition (EWM).
 
 assets:
-  - ref: ./assets/pallet-verification-agent/asset.yaml
-  - ref: ./assets/ewm-outbound-delivery-mcp-server/asset.yaml
-  - ref: ./assets/ewm-handling-unit-mcp-server/asset.yaml
-  - ref: ./assets/pallet-verification-ui/asset.yaml
+  - ref: ./assets/ewm-pallet-verification-agent/asset.yaml

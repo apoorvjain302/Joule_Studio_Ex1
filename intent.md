@@ -61,23 +61,27 @@ AI-powered pallet photo analysis during EWM outbound loading maps to Plan to Ful
 
 ## Recommendations
 
-### EWM Pallet Verification AI Agent
+### EWM Pallet Verification Joule Agent
 
 #### Executive Summary
 
-Build a pro-code Python AI agent that accepts pallet photos from multiple input channels, uses a multimodal LLM to detect and read HU labels, fetches the expected HU list from SAP EWM via OData APIs, and produces a structured verification report — alerting the worker and optionally blocking the delivery if discrepancies are found.
+Build a SAP Joule Agent using Joule Skills and Actions that enables warehouse workers to verify pallet HU labels against SAP EWM outbound delivery data through a conversational interface embedded in SAP S/4HANA or any SAP application that surfaces Joule.
 
 #### Recommended Solution
 
-A Python-based AI agent (A2A protocol) deployed on SAP App Foundation with the following tools:
-- **`analyze_pallet_photo`** — sends image to a multimodal LLM (vision model) to detect all visible HU labels, assess physical presence/readability, and extract barcode/text data.
-- **`get_outbound_delivery`** — calls SAP EWM OData API (`OP_API_OUTBOUND_DELIVERY_SRV_0002`) to fetch delivery header, items, and assigned HU list by delivery number.
-- **`get_handling_unit_details`** — calls `OP_HANDLINGUNIT_0001` to retrieve HU content, packing material, and delivery assignment.
-- **`lookup_hu_by_barcode`** — resolves a scanned HU barcode/SSCC number to its EWM delivery assignment when no delivery number is explicitly provided.
-- **`generate_verification_report`** — cross-references detected HUs vs. expected HUs, flags missing/extra HUs and label issues, returns a structured pass/fail report.
-- **`block_delivery`** — calls the Warehouse Outbound Delivery Order update API to set a blocking reason when critical discrepancies are found.
+A SAP Joule Agent composed of Joule Skills and Actions deployed via SAP AI Launchpad / SAP Build, with the following design:
 
-The agent is invoked by warehouse workers across supported channels: mobile chat UI, web upload form, handheld scanner, or triggered automatically by a fixed dock camera.
+**Joule Skills:**
+- **`VerifyPalletLoading`** — the primary skill that orchestrates the end-to-end pallet verification flow; accepts a delivery number or HU barcode as input from the worker via natural language or structured input.
+- **`LookUpHUByBarcode`** — sub-skill that resolves a scanned SSCC/barcode to its EWM delivery assignment when no delivery number is provided.
+- **`GenerateVerificationReport`** — sub-skill that cross-references detected HUs against expected HUs and formats a structured pass/fail summary for the worker.
+
+**Joule Actions (OData/REST API integrations):**
+- **`GetOutboundDelivery`** — calls `OP_API_OUTBOUND_DELIVERY_SRV_0002` to retrieve delivery header, items, and assigned HU list from SAP S/4HANA EWM.
+- **`GetHandlingUnitDetails`** — calls `OP_HANDLINGUNIT_0001` to fetch HU content, packing material, and delivery assignment details.
+- **`BlockDelivery`** — calls the Warehouse Outbound Delivery Order update API to set a blocking reason when critical discrepancies are found (supervisor-controlled action).
+
+The agent is surfaced to warehouse workers and supervisors via the Joule conversational UI embedded in SAP S/4HANA, SAP Mobile Start, or any SAP Fiori launchpad.
 
 #### Problem Statement
 
@@ -85,35 +89,35 @@ Manual pallet loading checks are error-prone and slow. Warehouse workers rely on
 
 #### Affected User Roles
 
-- Warehouse operator / picker (performs loading and photo capture)
-- Warehouse supervisor (reviews flagged discrepancies and release decisions)
+- Warehouse operator / picker (performs loading verification via Joule chat)
+- Warehouse supervisor (reviews flagged discrepancies and approves delivery blocking)
 - Shipping coordinator (ensures delivery completion before goods issue)
 
 #### Important factors
 
-##### Eliminates manual verification errors
-AI vision replaces error-prone manual checks, detecting missing or damaged labels and HU mismatches that a rushed worker might overlook.
+##### Native SAP Joule Integration
+Leveraging Joule Skills and Actions ensures the agent is embedded directly in the SAP user experience — no external chat interface or separate application is required.
 
 ##### Real-time EWM data integration
-Every verification is performed against live EWM data — no static lists or cached data — ensuring accuracy even when deliveries are updated last-minute.
+Every verification is performed against live EWM data via Joule Actions calling standard OData APIs, ensuring accuracy even when deliveries are updated last-minute.
 
-##### Multi-modal input flexibility
-Supporting fixed cameras, handhelds, mobile devices, and web upload ensures the agent fits into any warehouse floor setup without hardware changes.
+##### Low-code / declarative authoring
+Joule Skills and Actions are defined declaratively, reducing the custom code footprint and enabling faster iteration and maintenance by SAP Build authors.
 
 #### Potential risks
 
-##### Multimodal LLM accuracy on low-quality images
-Poor lighting, motion blur, or partial occlusion of labels can reduce OCR and label detection accuracy. Mitigation: implement confidence scoring and prompt the worker to retake the photo if confidence is below threshold.
-
 ##### EWM API connectivity and latency
-Real-time API calls to S/4HANA add latency to the verification flow. Mitigation: implement retry logic and surface clear error messages if the system is unreachable.
+Real-time API calls to S/4HANA add latency. Mitigation: implement retry logic in Actions and surface clear error messages if the system is unreachable.
 
 ##### Delivery blocking misuse
-Incorrect blocking of a valid delivery causes operational disruption. Mitigation: implement a supervisor override tool and log all blocking actions.
+Incorrect blocking of a valid delivery causes operational disruption. Mitigation: the BlockDelivery Action is gated behind a supervisor confirmation step in the skill flow.
+
+##### Joule platform availability
+Joule Skills and Actions require SAP AI Launchpad entitlement and appropriate BTP configuration. Mitigation: validate entitlement and landscape setup prior to implementation.
 
 #### Recommended solution category
 
-AI Agent
+Joule Agent (Joule Skills & Actions)
 
 #### Intent fit
-88%
+90%
